@@ -3,7 +3,16 @@
     "allow": [
       "Skill(anthropic-skills:pdf)",
       "Skill(anthropic-skills:pdf:*)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Skill(anthropic-skills:docx)",
+      "Skill(anthropic-skills:docx:*)",
+      "Bash(extract-text \"ВКР_ЯЦУК_CHERRYGIT.docx\")",
+      "Bash(pandoc \"ВКР_ЯЦУК_CHERRYGIT.docx\" -o /tmp/vkr.md)",
+      "Read(//tmp/**)",
+      "Bash(python3 -c ' *)",
+      "Bash(ls /c/Python*)",
+      "Read(//c/Users/serge/AppData/Local/Programs/**)",
+      "Bash(node -e ' *)"
     ]
   }
 }

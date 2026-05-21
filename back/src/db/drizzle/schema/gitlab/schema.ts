@@ -1,6 +1,7 @@
-import { integer, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+import { integer, jsonb, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
 
 import type { GitLabConnectionStatus } from './types/gitlab-connection-status.type';
+import type { RawPayloadType } from './types/raw-payload-type.type';
 import type { SyncStatusType } from './types/sync-status.type';
 
 import { baseSchema } from '../base.schema';
@@ -17,7 +18,7 @@ export const gitlabConnections = pgTable('gitlab_connections', {
     .notNull(),
   name: text('name').notNull(),
   baseUrl: text('base_url').notNull(),
-  /** Personal Access Token, зашифрован перед сохранением */
+  /** Personal Access Token, зашифрован перед сохранением (ВКР 2.2.3) */
   encryptedToken: text('encrypted_token').notNull(),
   status: text('status').$type<GitLabConnectionStatus>().default('active').notNull(),
   lastCheckedAt: timestamp('last_checked_at')
@@ -25,6 +26,40 @@ export const gitlabConnections = pgTable('gitlab_connections', {
 
 export type InsertGitlabConnection = typeof gitlabConnections.$inferInsert;
 export type SelectGitlabConnection = typeof gitlabConnections.$inferSelect;
+
+/**
+ * Сопоставление учётной записи CherryGit с учётной записью GitLab.
+ * Один пользователь может иметь разные GitLab-аккаунты на разных инстансах,
+ * поэтому идентификация per-connection (UC-03 в ВКР).
+ */
+export const userGitlabIdentities = pgTable(
+  'user_gitlab_identities',
+  {
+    ...baseSchema,
+    userUid: uuid('user_uid')
+      .references(() => users.uid)
+      .notNull(),
+    gitlabConnectionUid: uuid('gitlab_connection_uid')
+      .references(() => gitlabConnections.uid)
+      .notNull(),
+    gitlabUsername: text('gitlab_username').notNull(),
+    /** Численный ID пользователя на стороне GitLab */
+    gitlabUserId: integer('gitlab_user_id').notNull()
+  },
+  (t) => ({
+    uniqueUserPerConnection: unique('uq_user_per_connection').on(
+      t.userUid,
+      t.gitlabConnectionUid
+    ),
+    uniqueUsernamePerConnection: unique('uq_username_per_connection').on(
+      t.gitlabConnectionUid,
+      t.gitlabUsername
+    )
+  })
+);
+
+export type InsertUserGitlabIdentity = typeof userGitlabIdentities.$inferInsert;
+export type SelectUserGitlabIdentity = typeof userGitlabIdentities.$inferSelect;
 
 /**
  * GitLab-проекты, подключённые к системе.
@@ -83,3 +118,61 @@ export const syncStatuses = pgTable('sync_statuses', {
 
 export type InsertSyncStatus = typeof syncStatuses.$inferInsert;
 export type SelectSyncStatus = typeof syncStatuses.$inferSelect;
+
+/**
+ * Разметка модулей кодовой базы для расчёта Bus Factor по модулям (ВКР 2.2.2, FR-10).
+ * Администратор задаёт логические модули через glob-паттерны путей файлов;
+ * BusFactorCalculator группирует коммиты по path_pattern.
+ *
+ * Пример: name="auth", pathPattern="src/auth/**" — все коммиты, затрагивающие
+ * файлы в src/auth/, относятся к модулю "auth".
+ */
+export const codeModules = pgTable(
+  'code_modules',
+  {
+    ...baseSchema,
+    projectUid: uuid('project_uid')
+      .references(() => projects.uid)
+      .notNull(),
+    name: text('name').notNull(),
+    /** Glob-паттерн пути файла, относящегося к модулю */
+    pathPattern: text('path_pattern').notNull(),
+    description: text('description')
+  },
+  (t) => ({
+    uniqueModulePerProject: unique('uq_module_per_project').on(t.projectUid, t.name)
+  })
+);
+
+export type InsertCodeModule = typeof codeModules.$inferInsert;
+export type SelectCodeModule = typeof codeModules.$inferSelect;
+
+/**
+ * Staging-таблица сырых payload-ов от GitLab API (ВКР 2.2.5).
+ * Используется как буфер: cron-джоб сохраняет ответы GitLab «как есть»
+ * в jsonb, затем парсер маппит их в нормализованные сущности
+ * и проставляет processedAt.
+ *
+ * Назначение:
+ *  — устойчивость к сбоям парсера (можно перезапустить обработку);
+ *  — отладка расхождений между ожидаемым и фактическим payload-ом GitLab;
+ *  — соответствие требованию ВКР о хранении сырых данных в JSONB до обработки.
+ */
+export const gitlabRawPayloads = pgTable('gitlab_raw_payloads', {
+  ...baseSchema,
+  projectUid: uuid('project_uid')
+    .references(() => projects.uid)
+    .notNull(),
+  payloadType: text('payload_type').$type<RawPayloadType>().notNull(),
+  /** ID объекта на стороне GitLab (для дедупликации при ретраях) */
+  gitlabId: text('gitlab_id'),
+  payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
+  fetchedAt: timestamp('fetched_at').defaultNow().notNull(),
+  /** null = ещё не обработан; timestamp = успешно смапплен в нормализованные таблицы */
+  processedAt: timestamp('processed_at'),
+  /** Сообщение об ошибке парсера, если processedAt = null и было исключение */
+  processingError: text('processing_error')
+});
+
+export type InsertGitlabRawPayload = typeof gitlabRawPayloads.$inferInsert;
+export type SelectGitlabRawPayload = typeof gitlabRawPayloads.$inferSelect;

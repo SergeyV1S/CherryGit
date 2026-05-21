@@ -156,9 +156,14 @@ export type SelectMrReview = typeof mrReviews.$inferSelect;
  * Деплои в продакшен, определяемые по тегам GitLab.
  * Паттерн тегов задаётся в projects.releaseTagPattern.
  *
+ * Связь с merge_requests — many-to-many через deploymentMergeRequests:
+ * один релиз обычно агрегирует несколько MR, попавших в него
+ * (ВКР раздел 3.5.1, агрегация Deployment ◇— MergeRequest).
+ *
  * isFailed/isHotfix/isRevert вычисляются при синхронизации:
- * — isHotfix/isRevert — по меткам связанного MR (hasHotfixLabel / hasRevertLabel).
- * — isFailed — reserved for future; в MVP = false.
+ * — isHotfix/isRevert — true, если хотя бы один связанный MR имеет
+ *   соответствующую метку (hasHotfixLabel / hasRevertLabel).
+ * — isFailed — reserved for future; в MVP = false (требует интеграции с мониторингом).
  */
 export const deployments = pgTable(
   'deployments',
@@ -174,9 +179,7 @@ export const deployments = pgTable(
     deployedAt: timestamp('deployed_at').notNull(),
     isFailed: boolean('is_failed').default(false).notNull(),
     isHotfix: boolean('is_hotfix').default(false).notNull(),
-    isRevert: boolean('is_revert').default(false).notNull(),
-    /** MR, связанный с этим деплоем (если можно однозначно определить) */
-    mergeRequestUid: uuid('merge_request_uid').references(() => mergeRequests.uid)
+    isRevert: boolean('is_revert').default(false).notNull()
   },
   (t) => ({
     uniqueTagPerProject: unique('uq_tag_per_project').on(t.projectUid, t.tag)
@@ -185,3 +188,27 @@ export const deployments = pgTable(
 
 export type InsertDeployment = typeof deployments.$inferInsert;
 export type SelectDeployment = typeof deployments.$inferSelect;
+
+// ---------------------------------------------------------------------------
+// Deployment ↔ MergeRequest (связующая таблица)
+// ---------------------------------------------------------------------------
+
+/**
+ * Merge requests, попавшие в конкретный релиз (many-to-many).
+ * Используется для расчёта Lead Time: для каждого MR в деплое
+ * берётся время первого его коммита, разница с deployedAt = lead time.
+ */
+export const deploymentMergeRequests = pgTable(
+  'deployment_merge_requests',
+  {
+    deploymentUid: uuid('deployment_uid')
+      .references(() => deployments.uid)
+      .notNull(),
+    mergeRequestUid: uuid('merge_request_uid')
+      .references(() => mergeRequests.uid)
+      .notNull()
+  },
+  (t) => ({
+    pk: unique('uq_deployment_mr').on(t.deploymentUid, t.mergeRequestUid)
+  })
+);

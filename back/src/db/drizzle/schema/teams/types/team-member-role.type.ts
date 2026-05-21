@@ -1,1 +1,6 @@
-export type TeamMemberRole = 'DEVELOPER' | 'LEAD' | 'MANAGER';
+/**
+ * Роль пользователя в контексте конкретной команды.
+ * Один пользователь может быть LEAD в одной команде и DEVELOPER в другой.
+ * Глобальная роль системы хранится отдельно в users.role.
+ */
+export type TeamMemberRole = 'DEVELOPER' | 'LEAD';

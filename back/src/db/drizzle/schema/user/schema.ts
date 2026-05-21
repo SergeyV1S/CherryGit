@@ -3,6 +3,7 @@ import { date, pgTable, text, unique, uuid } from 'drizzle-orm/pg-core';
 import type { RoleType } from './types/role.type';
 
 import { baseSchema } from '../base.schema';
+import { departments } from '../departments/schema';
 
 export const users = pgTable(
   'users',
@@ -13,7 +14,9 @@ export const users = pgTable(
     mail: text('email').notNull().unique(),
     password: text('password'),
     phone: text('phone'),
-    role: text('role').$type<RoleType>().default('USER').notNull(),
+    role: text('role').$type<RoleType>().default('DEVELOPER').notNull(),
+    /** Отдел разработки, к которому относится пользователь (для роли HEAD) */
+    departmentUid: uuid('department_uid').references(() => departments.uid),
     birthDate: date('birth_date')
   },
   (table) => ({

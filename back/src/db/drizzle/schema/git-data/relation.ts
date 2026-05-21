@@ -2,7 +2,14 @@ import { relations } from 'drizzle-orm';
 
 import { projects } from '../gitlab/schema';
 import { users } from '../user/schema';
-import { commits, deployments, mergeRequests, mrCommits, mrReviews } from './schema';
+import {
+  commits,
+  deploymentMergeRequests,
+  deployments,
+  mergeRequests,
+  mrCommits,
+  mrReviews
+} from './schema';
 
 export const commitsRelations = relations(commits, ({ one, many }) => ({
   project: one(projects, {
@@ -27,7 +34,7 @@ export const mergeRequestsRelations = relations(mergeRequests, ({ one, many }) =
   }),
   reviews: many(mrReviews),
   mrCommits: many(mrCommits),
-  deployments: many(deployments)
+  deploymentMergeRequests: many(deploymentMergeRequests)
 }));
 
 export const mrCommitsRelations = relations(mrCommits, ({ one }) => ({
@@ -52,13 +59,24 @@ export const mrReviewsRelations = relations(mrReviews, ({ one }) => ({
   })
 }));
 
-export const deploymentsRelations = relations(deployments, ({ one }) => ({
+export const deploymentsRelations = relations(deployments, ({ one, many }) => ({
   project: one(projects, {
     fields: [deployments.projectUid],
     references: [projects.uid]
   }),
-  mergeRequest: one(mergeRequests, {
-    fields: [deployments.mergeRequestUid],
-    references: [mergeRequests.uid]
-  })
+  deploymentMergeRequests: many(deploymentMergeRequests)
 }));
+
+export const deploymentMergeRequestsRelations = relations(
+  deploymentMergeRequests,
+  ({ one }) => ({
+    deployment: one(deployments, {
+      fields: [deploymentMergeRequests.deploymentUid],
+      references: [deployments.uid]
+    }),
+    mergeRequest: one(mergeRequests, {
+      fields: [deploymentMergeRequests.mergeRequestUid],
+      references: [mergeRequests.uid]
+    })
+  })
+);

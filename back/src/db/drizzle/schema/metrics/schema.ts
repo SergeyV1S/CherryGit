@@ -1,9 +1,12 @@
 import { jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
+import type { AnomalySeverity } from './types/anomaly-severity.type';
+import type { AnomalySignalType } from './types/anomaly-signal-type.type';
 import type { EntityType } from './types/entity-type.type';
 import type { MetricType } from './types/metric-type.type';
 
 import { baseSchema } from '../base.schema';
+import { teams } from '../teams/schema';
 import { users } from '../user/schema';
 
 // ---------------------------------------------------------------------------
@@ -126,3 +129,45 @@ export const auditLogs = pgTable('audit_logs', {
 
 export type InsertAuditLog = typeof auditLogs.$inferInsert;
 export type SelectAuditLog = typeof auditLogs.$inferSelect;
+
+// ---------------------------------------------------------------------------
+// Anomaly signals
+// ---------------------------------------------------------------------------
+
+/**
+ * Сигналы аномалий командного флоу (ВКР FR-13, UC-02 шаг 8).
+ *
+ * Принципиальное ограничение: запись хранит ФАКТ устойчивого отклонения
+ * на уровне команды, но НЕ раскрывает конкретные индивидуальные значения
+ * метрик участников. Это обеспечивает соответствие ролевой модели:
+ * тимлид видит сигнал «время в ревью у одного из участников устойчиво
+ * выше командного флоу», но не видит, у кого именно и насколько.
+ *
+ * Подробные данные для отладки (включая участников) могут лежать в details,
+ * но API-эндпоинт для роли LEAD должен возвращать только description
+ * без раскрытия details.
+ */
+export const anomalySignals = pgTable('anomaly_signals', {
+  ...baseSchema,
+  teamUid: uuid('team_uid')
+    .references(() => teams.uid)
+    .notNull(),
+  signalType: text('signal_type').$type<AnomalySignalType>().notNull(),
+  severity: text('severity').$type<AnomalySeverity>().default('info').notNull(),
+  detectedAt: timestamp('detected_at').defaultNow().notNull(),
+  periodStart: timestamp('period_start').notNull(),
+  periodEnd: timestamp('period_end').notNull(),
+  /** Человекочитаемое описание сигнала БЕЗ индивидуальных значений */
+  description: text('description').notNull(),
+  /**
+   * Технические детали для системного анализа (содержат индивидуальные данные).
+   * НЕ возвращаются через API роли LEAD — только для роли ADMIN/системных отчётов.
+   */
+  details: jsonb('details').$type<Record<string, unknown>>(),
+  /** null = активный сигнал; timestamp = тимлид пометил как просмотренный */
+  dismissedAt: timestamp('dismissed_at'),
+  dismissedByUserUid: uuid('dismissed_by_user_uid').references(() => users.uid)
+});
+
+export type InsertAnomalySignal = typeof anomalySignals.$inferInsert;
+export type SelectAnomalySignal = typeof anomalySignals.$inferSelect;
