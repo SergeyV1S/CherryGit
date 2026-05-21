@@ -1,0 +1,288 @@
+@startuml
+skinparam classAttributeIconSize 0
+hide circle
+left to right direction
+ 
+' ===== ENUMS =====
+enum Role {
+  developer
+  team_lead
+  head
+  admin
+}
+ 
+enum MRState {
+  opened
+  merged
+  closed
+}
+ 
+enum ReviewState {
+  commented
+  approved
+  requested_changes
+}
+ 
+enum MetricType {
+  lead_time
+  deployment_frequency
+  change_failure_rate
+  cycle_time_mr
+  mr_size
+  bus_factor
+}
+ 
+enum EntityType {
+  project
+  team
+  user
+}
+ 
+' ===== Доменные классы =====
+class User {
+  - id : UUID
+  - username : String
+  - passwordHash : String
+  - gitlabUsername : String
+  - role : Role
+  - createdAt : DateTime
+  + authenticate(password : String) : Boolean
+  + getRole() : Role
+}
+ 
+class Team {
+  - id : UUID
+  - name : String
+  - createdAt : DateTime
+  + getMembers() : List<User>
+  + getLead() : User
+}
+ 
+class TeamMember <<association class>> {
+  - joinedAt : DateTime
+}
+ 
+class Project {
+  - id : UUID
+  - gitlabProjectId : Integer
+  - gitlabBaseUrl : String
+  - name : String
+  - encryptedToken : String
+  - releaseTagPattern : String
+  - hotfixLabel : String
+  - revertLabel : String
+  - createdAt : DateTime
+  + decryptToken() : String
+}
+ 
+class SyncStatus {
+  - lastSyncAt : DateTime
+  - lastCommitSha : String
+  - lastMrIid : Integer
+  + updateSyncPoint(commit, mr) : void
+}
+ 
+class Commit {
+  - id : UUID
+  - sha : String
+  - message : String
+  - committedAt : DateTime
+  - filesChanged : JSON
+}
+ 
+class MergeRequest {
+  - id : UUID
+  - gitlabMrIid : Integer
+  - state : MRState
+  - createdAt : DateTime
+  - firstReviewAt : DateTime
+  - approvedAt : DateTime
+  - mergedAt : DateTime
+  - linesAdded : Integer
+  - linesRemoved : Integer
+  - hasHotfixLabel : Boolean
+  - hasRevertLabel : Boolean
+  + getCycleTimePhases() : CycleTimePhases
+  + getSizeBucket() : SizeBucket
+}
+ 
+class Review {
+  - id : UUID
+  - state : ReviewState
+  - createdAt : DateTime
+}
+ 
+class Deployment {
+  - id : UUID
+  - tag : String
+  - deployedAt : DateTime
+  - isFailed : Boolean
+  - isHotfix : Boolean
+  - isRevert : Boolean
+}
+ 
+class AuditLog {
+  - id : UUID
+  - action : String
+  - entityType : String
+  - entityId : UUID
+  - timestamp : DateTime
+  - details : JSON
+}
+ 
+class MetricSnapshot {
+  - id : UUID
+  - metricType : MetricType
+  - entityType : EntityType
+  - entityId : UUID
+  - periodStart : DateTime
+  - periodEnd : DateTime
+  - value : JSON
+  - calculatedAt : DateTime
+}
+ 
+' ===== Интерфейс и реализация =====
+interface IDataSource {
+  + fetchProjects() : List<Project>
+  + fetchCommits(projectId, since) : List<Commit>
+  + fetchMergeRequests(projectId, since) : List<MergeRequest>
+  + fetchReviews(mrId) : List<Review>
+  + fetchTags(projectId) : List<String>
+}
+ 
+class GitLabClient {
+  - baseUrl : String
+  - token : String
+  + fetchProjects() : List<Project>
+  + fetchCommits(projectId, since) : List<Commit>
+  + fetchMergeRequests(projectId, since) : List<MergeRequest>
+  + fetchReviews(mrId) : List<Review>
+  + fetchTags(projectId) : List<String>
+}
+ 
+' ===== Иерархия калькуляторов =====
+abstract class MetricCalculator {
+  + {abstract} calculate(period : Period) : MetricSnapshot
+  + {abstract} getMetricType() : MetricType
+}
+ 
+class LeadTimeCalculator {
+  + calculate(period) : MetricSnapshot
+  + getMetricType() : MetricType
+}
+class DeploymentFrequencyCalculator {
+  + calculate(period) : MetricSnapshot
+  + getMetricType() : MetricType
+}
+class ChangeFailureRateCalculator {
+  + calculate(period) : MetricSnapshot
+  + getMetricType() : MetricType
+}
+class CycleTimeMRCalculator {
+  + calculate(period) : MetricSnapshot
+  + getMetricType() : MetricType
+}
+class MRSizeCalculator {
+  + calculate(period) : MetricSnapshot
+  + getMetricType() : MetricType
+}
+class BusFactorCalculator {
+  + calculate(period) : MetricSnapshot
+  + getMetricType() : MetricType
+}
+ 
+' ============================================================
+' СВЯЗИ
+' ============================================================
+ 
+' --- Агрегация: команда состоит из пользователей через TeamMember ---
+Team o--> "user" User
+(Team, User) .. TeamMember
+ 
+' --- Композиция: Project ◆— SyncStatus ---
+Project "syncStatus" *--> "project" SyncStatus
+ 
+' --- Агрегация: Project ◇— Commit/MR/Deployment ---
+Project o--> "project" Commit
+Project o--> "project" MergeRequest
+Project o--> "project" Deployment
+ 
+' --- Композиция: MergeRequest ◆— Review ---
+MergeRequest "review" *--> "mergeRequest" Review
+ 
+' --- Ассоциации между доменными классами ---
+User --> "author" Commit
+User --> "author" MergeRequest
+User --> "reviewer" Review
+MergeRequest "commit" o--> "mergeRequest" Commit
+MergeRequest "deployment" <--o "mergeRequest" Deployment
+User --> "author" AuditLog
+ 
+' --- Реализация интерфейса ---
+GitLabClient ..|> IDataSource
+ 
+' --- Обобщение (наследование) калькуляторов ---
+MetricCalculator <|-- LeadTimeCalculator
+MetricCalculator <|-- DeploymentFrequencyCalculator
+MetricCalculator <|-- ChangeFailureRateCalculator
+MetricCalculator <|-- CycleTimeMRCalculator
+MetricCalculator <|-- MRSizeCalculator
+MetricCalculator <|-- BusFactorCalculator
+ 
+' --- Зависимости: калькуляторы читают доменные данные ---
+MetricCalculator ..> Commit
+MetricCalculator ..> MergeRequest
+MetricCalculator ..> Review
+MetricCalculator ..> Deployment
+MetricCalculator ..> MetricSnapshot : create
+ 
+' --- IDataSource возвращает доменные данные ---
+IDataSource ..> Project
+IDataSource ..> Commit
+IDataSource ..> MergeRequest
+IDataSource ..> Review
+ 
+' --- Связи перечислений (пунктир + роль) ---
+User ..> Role : role
+MergeRequest ..> MRState : state
+Review ..> ReviewState : state
+MetricSnapshot ..> MetricType : type
+MetricCalculator ..> MetricType : type
+MetricSnapshot ..> EntityType : type
+ 
+@enduml
+ 
+ 
+================================================================
+ПРИМЕЧАНИЕ ПО НОТАЦИИ
+================================================================
+ 
+В соответствии со спецификацией UML 2.5.1 и руководством Visual
+Paradigm на диаграмме применены следующие условные обозначения:
+ 
+  ..|>  — реализация интерфейса (Realization)
+          Стрелка от реализующего класса К интерфейсу,
+          пунктирная линия с пустым треугольником.
+ 
+  <|--  — обобщение / наследование (Generalization)
+          Стрелка от подкласса К суперклассу,
+          сплошная линия с пустым треугольником.
+ 
+  *--   — композиция (Composition)
+          Заполненный ромб у класса-целого, сплошная линия.
+          Жизненный цикл части совпадает с жизненным циклом
+          целого: Project ◆— SyncStatus, MergeRequest ◆— Review.
+ 
+  o--   — агрегация (Aggregation)
+          Пустой ромб у класса-целого, сплошная линия.
+          Часть существует независимо: Team ◇— User,
+          Project ◇— Commit/MergeRequest/Deployment.
+ 
+  --    — ассоциация (Association)
+          Сплошная линия. Кратность указана на концах,
+          роль — как подпись над линией.
+ 
+  ..>   — зависимость (Dependency)
+          Стрелка пунктирная с открытым окончанием.
+          Класс использует другой класс, но не удерживает
+          ссылку в поле: MetricCalculator ..> Commit.
