@@ -1,10 +1,10 @@
 import { relations } from 'drizzle-orm';
 
-import { files, images } from '../media/schema';
-import { gitlabConnections } from '../gitlab/schema';
-import { teamMembers } from '../teams/schema';
 import { commits, mergeRequests, mrReviews } from '../git-data/schema';
+import { gitlabConnections } from '../gitlab/schema';
+import { files, images } from '../media/schema';
 import { auditLogs } from '../metrics/schema';
+import { teamMembers } from '../teams/schema';
 import { userProfle, users } from './schema';
 
 export const userRelations = relations(users, ({ one, many }) => ({

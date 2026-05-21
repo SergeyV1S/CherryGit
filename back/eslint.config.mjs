@@ -2,7 +2,7 @@ import { eslint } from '@siberiacancode/eslint';
 
 export default eslint({
   typescript: true,
-  ignores: ['src/types/*'],
+  ignores: ['src/types/*', '*.md'],
   rules: {
     'ts/no-use-before-define': ['off'],
     'no-useless-catch': ['off'],

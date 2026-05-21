@@ -1,7 +1,7 @@
 export type MetricType =
-  | 'lead_time'
-  | 'deployment_frequency'
+  | 'bus_factor'
   | 'change_failure_rate'
   | 'cycle_time_mr'
-  | 'mr_size'
-  | 'bus_factor';
+  | 'deployment_frequency'
+  | 'lead_time'
+  | 'mr_size';

@@ -1,8 +1,8 @@
 import { relations } from 'drizzle-orm';
 
-import { users } from '../user/schema';
-import { teams } from '../teams/schema';
 import { commits, deployments, mergeRequests } from '../git-data/schema';
+import { teams } from '../teams/schema';
+import { users } from '../user/schema';
 import { gitlabConnections, projects, syncStatuses } from './schema';
 
 export const gitlabConnectionsRelations = relations(gitlabConnections, ({ one, many }) => ({

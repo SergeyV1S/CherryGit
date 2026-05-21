@@ -1,1 +1,1 @@
-export type SyncStatusType = 'idle' | 'syncing' | 'error';
+export type SyncStatusType = 'error' | 'idle' | 'syncing';

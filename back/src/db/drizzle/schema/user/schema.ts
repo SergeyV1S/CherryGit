@@ -1,4 +1,4 @@
-import { date, pgTable, text, unique, uuid, varchar } from 'drizzle-orm/pg-core';
+import { date, pgTable, text, unique, uuid } from 'drizzle-orm/pg-core';
 
 import type { RoleType } from './types/role.type';
 
@@ -16,12 +16,10 @@ export const users = pgTable(
     role: text('role').$type<RoleType>().default('USER').notNull(),
     birthDate: date('birth_date')
   },
-  (table) => {
-    return {
+  (table) => ({
       usersMailUnique: unique('users_mail_unique').on(table.mail),
       usersPhoneUnique: unique('users_phone_unique').on(table.phone)
-    };
-  }
+    })
 );
 
 export type InsertUser = typeof users.$inferInsert;

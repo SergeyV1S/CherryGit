@@ -1,1 +1,1 @@
-export type GitLabConnectionStatus = 'active' | 'inactive' | 'error';
+export type GitLabConnectionStatus = 'active' | 'error' | 'inactive';

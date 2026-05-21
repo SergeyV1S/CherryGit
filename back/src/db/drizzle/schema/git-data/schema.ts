@@ -13,11 +13,11 @@ import { users } from '../user/schema';
 
 /** Изменённый файл в коммите (filesChanged) */
 export interface CommitFileChange {
-  path: string;
   /** Тип изменения: A=added, M=modified, D=deleted, R=renamed */
-  changeType: 'A' | 'M' | 'D' | 'R';
+  changeType: 'A' | 'D' | 'M' | 'R';
   linesAdded: number;
   linesRemoved: number;
+  path: string;
 }
 
 // ---------------------------------------------------------------------------

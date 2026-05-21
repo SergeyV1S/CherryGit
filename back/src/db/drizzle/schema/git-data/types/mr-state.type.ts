@@ -1,1 +1,1 @@
-export type MRState = 'opened' | 'merged' | 'closed';
+export type MRState = 'closed' | 'merged' | 'opened';

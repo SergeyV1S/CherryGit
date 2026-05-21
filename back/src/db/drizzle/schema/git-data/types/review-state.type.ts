@@ -1,1 +1,1 @@
-export type ReviewState = 'commented' | 'approved' | 'requested_changes';
+export type ReviewState = 'approved' | 'commented' | 'requested_changes';

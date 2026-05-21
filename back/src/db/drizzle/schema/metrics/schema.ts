@@ -19,17 +19,17 @@ export interface LeadTimeValue {
 
 /** Deployment Frequency: число деплоев и рассчитанная категория */
 export interface DeploymentFrequencyValue {
-  count: number;
   /** elite | high | medium | low */
   category: string;
+  count: number;
   perDay: number;
 }
 
 /** Change Failure Rate: доля неудачных деплоев */
 export interface ChangeFailureRateValue {
-  totalDeploys: number;
   failedDeploys: number;
   ratePercent: number;
+  totalDeploys: number;
 }
 
 /** Cycle Time MR: фазы в секундах */
@@ -66,12 +66,12 @@ export interface BusFactorValue {
 }
 
 export type MetricValue =
-  | LeadTimeValue
-  | DeploymentFrequencyValue
+  | BusFactorValue
   | ChangeFailureRateValue
   | CycleTimeMrValue
-  | MrSizeValue
-  | BusFactorValue;
+  | DeploymentFrequencyValue
+  | LeadTimeValue
+  | MrSizeValue;
 
 // ---------------------------------------------------------------------------
 // MetricSnapshot
