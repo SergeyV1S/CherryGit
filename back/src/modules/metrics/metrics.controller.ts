@@ -73,6 +73,25 @@ export async function getTeamMrSize(
   }
 }
 
+export async function getTeamLeadTime(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { periodStart, periodEnd } = parsePeriod(req);
+    const result = await MetricsService.getTeamLeadTime(
+      req.user!.uid,
+      param(req, 'teamUid'),
+      periodStart,
+      periodEnd
+    );
+    sendResponse(res, HttpStatus.OK, result);
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function getTeamBusFactor(
   req: Request,
   res: Response,

@@ -13,6 +13,7 @@ import * as MetricsController from './metrics.controller';
  *   /metrics         — DEV (+1) / LEAD (+2) / HEAD (+)
  *   /cycle-time-mr   — LEAD (+2) только
  *   /mr-size         — LEAD (+2) только (парная визуализация с cycle-time-mr)
+ *   /lead-time       — LEAD (+2) / HEAD (+)  — DORA throughput
  *   /bus-factor      — LEAD (+2) / HEAD (+)
  *   /anomalies       — LEAD (+2) только
  */
@@ -32,6 +33,12 @@ router.get(
   '/cycle-time-mr',
   requireRole('LEAD', 'ADMIN'),
   MetricsController.getTeamCycleTimeMr
+);
+
+router.get(
+  '/lead-time',
+  requireRole('LEAD', 'HEAD', 'ADMIN'),
+  MetricsController.getTeamLeadTime
 );
 
 router.get(

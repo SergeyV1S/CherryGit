@@ -13,11 +13,30 @@ import { users } from '../user/schema';
 // Metric value shapes (хранятся в JSONB-поле value)
 // ---------------------------------------------------------------------------
 
-/** Lead Time: медиана и 90-й перцентиль в секундах */
+/**
+ * Lead Time for Changes (ВКР FR-04, DORA-throughput, доработка 2.3).
+ *
+ * Семантика DORA: время от первого коммита изменения до его выкатки в прод.
+ * В нашей модели «изменение» = merge request, «выкатка» = deployment с тегом,
+ * подошедшим под `releaseTagPattern`. Связка обеспечена таблицей
+ * `deployment_merge_requests` (заполняется в 1.4).
+ *
+ * Формула на пару (deployment, MR):
+ *   leadTime = deployedAt − MIN(commits.committedAt for c in mr_commits)
+ *
+ * Агрегаты — `number | null` (null = пустая выборка, как в 2.1/2.2). Для
+ * прозрачности расчёта возвращаются три счётчика — UI рисует их рядом с
+ * формулой в раскрывающемся блоке (ВКР: «формула в UI»).
+ */
 export interface LeadTimeValue {
-  medianSeconds: number;
-  p90Seconds: number;
+  medianSeconds: number | null;
+  p90Seconds: number | null;
+  /** Сколько пар (deployment, MR) попало в выборку. */
   sampleSize: number;
+  /** Сколько деплоев в окне периода рассмотрено (включая пустые). */
+  deploymentsConsidered: number;
+  /** Сколько MR пропущено из-за отсутствия mr_commits (см. ДОРАБОТКИ 2.3). */
+  excludedMrsWithoutCommits: number;
 }
 
 /** Deployment Frequency: число деплоев и рассчитанная категория */

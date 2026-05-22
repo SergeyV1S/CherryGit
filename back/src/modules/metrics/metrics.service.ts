@@ -1,15 +1,29 @@
-import { and, gte, inArray, lte } from 'drizzle-orm';
+import { and, count, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 
-import type { CycleTimeMrValue, MrSizeValue } from '@/db/drizzle/schema/metrics/schema';
+import type {
+  CycleTimeMrValue,
+  LeadTimeValue,
+  MrSizeValue
+} from '@/db/drizzle/schema/metrics/schema';
 
 import { db } from '@/db/drizzle/connect';
-import { mergeRequests } from '@/db/drizzle/schema/git-data/schema';
+import {
+  commits,
+  deploymentMergeRequests,
+  deployments,
+  mergeRequests,
+  mrCommits
+} from '@/db/drizzle/schema/git-data/schema';
 import { notImplemented } from '@/lib/not-implemented';
 
 import {
   CycleTimeMrCalculator,
   type CycleTimeMrInput
 } from './calculators/cycle-time-mr.calculator';
+import {
+  LeadTimeCalculator,
+  type LeadTimeSample
+} from './calculators/lead-time.calculator';
 import {
   MrSizeCalculator,
   type MrSizeInput
@@ -230,6 +244,124 @@ export const getTeamMrSize = async (
     periodEnd,
     projectUids,
     value: calculator.compute(input)
+  };
+};
+
+/**
+ * Lead Time for Changes — DORA-метрика (ВКР FR-04, доработка 2.3).
+ *
+ * Формула на пару (deployment, MR):
+ *   leadTime = deployedAt − MIN(commits.committedAt for c in mr_commits)
+ *
+ * Алгоритм:
+ *   1. assertTeamAccess(actor, team) — 403/404.
+ *   2. Если у команды нет проектов — пустой результат.
+ *   3. Параллельно два запроса:
+ *      a) COUNT deployments в окне (для прозрачности расчёта — UI показывает
+ *         «N деплоев рассмотрено», даже если у части не нашлось связанных MR);
+ *      b) LEFT JOIN deployments → deployment_merge_requests → merge_requests
+ *         → mr_commits → commits, GROUP BY (deployment, MR), агрегат
+ *         MIN(commits.committedAt) AS firstCommitAt.
+ *   4. calculator.compute(samples, deploymentsConsidered) — медиана/p90.
+ *
+ * Окно — по `deployedAt` (это «дата релиза», стабильная во времени).
+ *
+ * Почему LEFT JOIN, а не INNER на mr_commits:
+ *   Если у MR ещё нет связей `mr_commits` (sync только что подключил проект
+ *   и не успел подгрузить детали MR), MR не должен «исчезнуть из выборки» —
+ *   он должен быть посчитан в `excludedMrsWithoutCommits`, чтобы при
+ *   маленькой выборке тимлид понимал «у трёх MR из десяти не успел подгрузиться
+ *   первый коммит, перезапустите sync».
+ *
+ * Доступ — LEAD команды / HEAD отдела / ADMIN (см. metrics.routes.ts).
+ *   LEAD видит DORA своей команды (это часть «командных агрегатов» FR-04),
+ *   HEAD — DORA любой команды своего отдела (для дашборда руководителя 7.4).
+ */
+export interface TeamLeadTimeReport {
+  metricType: 'lead_time';
+  periodStart: Date;
+  periodEnd: Date;
+  teamUid: string;
+  /** Список UID проектов, по которым шла выборка (прозрачность расчёта). */
+  projectUids: string[];
+  value: LeadTimeValue;
+}
+
+export const getTeamLeadTime = async (
+  actorUid: string,
+  teamUid: string,
+  periodStart: Date,
+  periodEnd: Date
+): Promise<TeamLeadTimeReport> => {
+  if (periodEnd < periodStart) {
+    throw new Error('periodEnd must be ≥ periodStart');
+  }
+
+  const { projectUids } = await assertTeamAccess(actorUid, teamUid);
+
+  const calculator = new LeadTimeCalculator();
+
+  if (projectUids.length === 0) {
+    return {
+      metricType: 'lead_time',
+      teamUid,
+      periodStart,
+      periodEnd,
+      projectUids,
+      value: calculator.compute([], 0)
+    };
+  }
+
+  const deploymentWindow = and(
+    inArray(deployments.projectUid, projectUids),
+    gte(deployments.deployedAt, periodStart),
+    lte(deployments.deployedAt, periodEnd)
+  );
+
+  // (a) счётчик деплоев в окне — нужен для `deploymentsConsidered` в LeadTimeValue.
+  // Делаем отдельный запрос, потому что LEFT JOIN ниже теряет deployments без
+  // связанных MR (INNER JOIN на deployment_merge_requests отсекает их).
+  // (b) выборка пар (deployment, MR) с минимальным временем коммита.
+  //     LEFT JOIN на mr_commits/commits даёт NULL у MR без подгруженных коммитов;
+  //     calculator считает их в excludedMrsWithoutCommits.
+  const [[deploymentsCountRow], pairs] = await Promise.all([
+    db
+      .select({ value: count() })
+      .from(deployments)
+      .where(deploymentWindow),
+    db
+      .select({
+        deployedAt: deployments.deployedAt,
+        firstCommitAt: sql<Date | null>`MIN(${commits.committedAt})`.as('first_commit_at')
+      })
+      .from(deployments)
+      .innerJoin(
+        deploymentMergeRequests,
+        eq(deploymentMergeRequests.deploymentUid, deployments.uid)
+      )
+      .innerJoin(mergeRequests, eq(mergeRequests.uid, deploymentMergeRequests.mergeRequestUid))
+      .leftJoin(mrCommits, eq(mrCommits.mergeRequestUid, mergeRequests.uid))
+      .leftJoin(commits, eq(commits.uid, mrCommits.commitUid))
+      .where(deploymentWindow)
+      .groupBy(deployments.uid, deployments.deployedAt, mergeRequests.uid)
+  ]);
+
+  const deploymentsConsidered = deploymentsCountRow?.value ?? 0;
+
+  // Postgres драйвер возвращает MIN(timestamp) как Date | null; sql<Date | null>
+  // выше выравнивает тип. Передаём в калькулятор без преобразований.
+  const samples: LeadTimeSample[] = pairs.map((r) => ({
+    deployedAt: r.deployedAt,
+    firstCommitAt: r.firstCommitAt ? new Date(r.firstCommitAt) : null
+  }));
+
+  return {
+    metricType: 'lead_time',
+    teamUid,
+    periodStart,
+    periodEnd,
+    projectUids,
+    value: calculator.compute(samples, deploymentsConsidered)
   };
 };
 
