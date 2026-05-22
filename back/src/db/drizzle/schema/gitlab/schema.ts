@@ -82,10 +82,23 @@ export const projects = pgTable(
     defaultBranch: text('default_branch'),
     /** Glob-паттерн тегов, означающих деплой в продакшен, напр. "v*" */
     releaseTagPattern: text('release_tag_pattern').default('v*').notNull(),
-    /** Метка MR, обозначающая хотфикс (для CFR) */
-    hotfixLabel: text('hotfix_label').default('hotfix').notNull(),
-    /** Метка MR, обозначающая откат (для CFR) */
-    revertLabel: text('revert_label').default('revert').notNull()
+    /**
+     * Метки MR, обозначающие хотфикс (для CFR, FR-03 / ВКР 2.5).
+     * MR с ЛЮБОЙ из этих меток помечается как hotfix; если такой MR
+     * попадает в окно деплоя — деплой помечается `isHotfix=true`.
+     * По умолчанию `{hotfix, rollback}`.
+     */
+    hotfixLabels: text('hotfix_labels')
+      .array()
+      .default(['hotfix', 'rollback'])
+      .notNull(),
+    /**
+     * Метки MR, обозначающие откат изменений (для CFR).
+     * Семантически парный набор к `hotfixLabels`, но хранится отдельно,
+     * т.к. `merge_requests.hasHotfixLabel` и `hasRevertLabel` — разные колонки.
+     * По умолчанию `{revert}`.
+     */
+    revertLabels: text('revert_labels').array().default(['revert']).notNull()
   },
   (t) => ({
     /** Один проект GitLab не может быть подключён дважды к одному инстансу */

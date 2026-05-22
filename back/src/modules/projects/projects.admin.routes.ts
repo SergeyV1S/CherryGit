@@ -16,6 +16,10 @@ router.get('/:uid', ProjectsController.getProject);
 router.patch('/:uid', ProjectsController.updateProject);
 router.delete('/:uid', ProjectsController.deleteProject);
 
+// Управление наборами меток инцидентов (доработка 1.4 — FR-03).
+// Принимает { hotfixLabels?: string[], revertLabels?: string[] }; хотя бы одно поле.
+router.patch('/:uid/hotfix-labels', ProjectsController.updateIncidentLabels);
+
 // Форсированный пересбор данных проекта (доработка 1.2 — UC-01 post-action)
 router.post('/:uid/resync', ProjectsController.triggerResync);
 

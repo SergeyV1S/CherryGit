@@ -91,9 +91,9 @@ export const mergeRequests = pgTable(
     linesAdded: integer('lines_added').default(0).notNull(),
     linesRemoved: integer('lines_removed').default(0).notNull(),
     filesChangedCount: integer('files_changed_count').default(0).notNull(),
-    /** true = MR имеет метку, указанную в projects.hotfixLabel */
+    /** true = MR имеет хотя бы одну метку из projects.hotfixLabels */
     hasHotfixLabel: boolean('has_hotfix_label').default(false).notNull(),
-    /** true = MR имеет метку, указанную в projects.revertLabel */
+    /** true = MR имеет хотя бы одну метку из projects.revertLabels */
     hasRevertLabel: boolean('has_revert_label').default(false).notNull()
   },
   (t) => ({

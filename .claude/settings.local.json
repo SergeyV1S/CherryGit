@@ -16,7 +16,9 @@
       "WebFetch(domain:docs.gitlab.com)",
       "Bash(npx eslint *)",
       "Bash(echo \"exit:$?\")",
-      "Bash(npx drizzle-kit *)"
+      "Bash(npx drizzle-kit *)",
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(npm run *)"
     ]
   }
 }

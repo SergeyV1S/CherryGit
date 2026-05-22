@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray, isNotNull, lte, sql } from 'drizzle-orm';
 
 import type { ReviewState } from '@/db/drizzle/schema/git-data/types/review-state.type';
 import type {
@@ -11,6 +11,7 @@ import type {
 import { db } from '@/db/drizzle/connect';
 import {
   commits,
+  deploymentMergeRequests,
   deployments,
   mergeRequests,
   mrCommits,
@@ -58,6 +59,11 @@ import { matchGlob } from './glob-match';
 /** Результат прогона sync для одного проекта (возвращается контроллеру). */
 export interface SyncReport {
   commitsUpserted: number;
+  /**
+   * Сколько строк `deployment_merge_requests` создано или подтверждено
+   * на шаге `linkDeploymentsToMergeRequests` (доработка 1.4 / 2.3 prep).
+   */
+  deploymentMrLinks: number;
   deploymentsUpserted: number;
   durationMs: number;
   mergeRequestsUpserted: number;
@@ -104,6 +110,7 @@ export const syncProject = async (
     mergeRequestsUpserted: 0,
     reviewsUpserted: 0,
     deploymentsUpserted: 0,
+    deploymentMrLinks: 0,
     durationMs: 0
   };
 
@@ -146,6 +153,21 @@ export const syncProject = async (
       project.releaseTagPattern
     );
 
+    // ---- Шаг 4: классификация деплоев и привязка MR (FR-03, доработка 1.4) ----
+    // Без default_branch не можем определить окно «релизные MR» (target_branch);
+    // в этом случае пропускаем и просим админа подключить проект заново
+    // или вызвать /resync после миграции schema (см. ДОРАБОТКИ.md, 1.2).
+    if (project.defaultBranch) {
+      report.deploymentMrLinks = await linkDeploymentsToMergeRequests(
+        project.uid,
+        project.defaultBranch
+      );
+    } else {
+      logger.warn(
+        `Sync project=${projectUid}: defaultBranch is null, skipping deployment↔MR linking`
+      );
+    }
+
     // ---- Финал: разблокировать, обновить закладку ----
     // GitLab возвращает commits отсортированными DESC по committed_date —
     // самый свежий первым; для MR — sort=asc, самый свежий последним.
@@ -163,7 +185,7 @@ export const syncProject = async (
 
     report.durationMs = Date.now() - start;
     logger.info(
-      `Sync OK project=${projectUid} commits=${report.commitsUpserted} mrs=${report.mergeRequestsUpserted} reviews=${report.reviewsUpserted} deploys=${report.deploymentsUpserted} in ${report.durationMs}ms`
+      `Sync OK project=${projectUid} commits=${report.commitsUpserted} mrs=${report.mergeRequestsUpserted} reviews=${report.reviewsUpserted} deploys=${report.deploymentsUpserted} deployMrLinks=${report.deploymentMrLinks} in ${report.durationMs}ms`
     );
 
     await recordAuditLog({
@@ -404,7 +426,12 @@ const upsertMergeRequest = async (
 
   const authors = await resolveAuthors(connectionUid, [remote.author.username]);
 
+  // Классификация инцидентов (FR-03, доработка 1.4): MR попадает под hotfix/
+  // revert, если ХОТЯ БЫ одна его метка пересекается с соответствующим набором
+  // проекта. Сравнение case-sensitive — GitLab labels case-sensitive.
   const labelSet = new Set(remote.labels);
+  const hasHotfixLabel = project.hotfixLabels.some((l) => labelSet.has(l));
+  const hasRevertLabel = project.revertLabels.some((l) => labelSet.has(l));
 
   const [row] = await db
     .insert(mergeRequests)
@@ -425,8 +452,8 @@ const upsertMergeRequest = async (
       linesAdded: size.linesAdded,
       linesRemoved: size.linesRemoved,
       filesChangedCount: size.filesChanged,
-      hasHotfixLabel: labelSet.has(project.hotfixLabel),
-      hasRevertLabel: labelSet.has(project.revertLabel)
+      hasHotfixLabel,
+      hasRevertLabel
     })
     .onConflictDoUpdate({
       target: [mergeRequests.projectUid, mergeRequests.gitlabMrIid],
@@ -560,12 +587,17 @@ const upsertDeploymentsFromTags = async (
   const matching = tags.filter((t) => matchGlob(releaseTagPattern, t.name));
   if (matching.length === 0) return 0;
 
+  // Доработка 1.4: при upsert сбрасываем isHotfix/isRevert в false; фактические
+  // признаки восстановит `linkDeploymentsToMergeRequests` ниже — иначе старая
+  // классификация осталась бы «висеть» после удаления метки из проекта.
+  // isFailed не трогаем — её владелец будущая интеграция с мониторингом.
   const values = matching.map((t) => ({
     projectUid,
     tag: t.name,
     commitSha: t.commit.id,
-    deployedAt: new Date(t.commit.committed_date)
-    // isFailed/isHotfix/isRevert — namespaced для доработки 1.4 (классификация инцидентов)
+    deployedAt: new Date(t.commit.committed_date),
+    isHotfix: false,
+    isRevert: false
   }));
 
   await db
@@ -575,9 +607,126 @@ const upsertDeploymentsFromTags = async (
       target: [deployments.projectUid, deployments.tag],
       set: {
         commitSha: sql`excluded.commit_sha`,
-        deployedAt: sql`excluded.deployed_at`
+        deployedAt: sql`excluded.deployed_at`,
+        isHotfix: sql`excluded.is_hotfix`,
+        isRevert: sql`excluded.is_revert`
       }
     });
 
   return values.length;
+};
+
+// ===========================================================================
+// Шаг 4: связь deployments ↔ merge_requests + классификация инцидентов
+// (доработка 1.4, FR-03; необходима для Lead Time (2.3) и CFR (2.5))
+// ===========================================================================
+
+/**
+ * Для каждого деплоя проекта определяет, какие merged MRs «попали» в релиз,
+ * и заполняет таблицу `deployment_merge_requests` (m2m).
+ *
+ * Алгоритм (ВКР раздел 3.5.2, BPMN «Основной процесс»):
+ *  1. выбрать все deployments проекта, отсортированные ASC по deployedAt;
+ *  2. для каждого deployment[i]:
+ *     — окно = (deployment[i-1].deployedAt, deployment[i].deployedAt];
+ *       для первого деплоя — (-∞, deployment[0].deployedAt];
+ *     — выбрать merged MRs с `target_branch === defaultBranch`,
+ *       `merged_at IS NOT NULL`, попадающие в окно;
+ *     — bulk insert в deployment_merge_requests (ON CONFLICT DO NOTHING);
+ *  3. на основе ЛЮБОГО связанного MR с has_hotfix_label/has_revert_label
+ *     поднять флаг `deployments.isHotfix`/`isRevert` — это и есть CFR-сигнал.
+ *
+ * Идемпотентность: связь (deployment_uid, merge_request_uid) уникальна,
+ * повторный sync не плодит дубликаты. Флаги isHotfix/isRevert сначала
+ * сбрасываются в upsertDeploymentsFromTags, затем поднимаются здесь, что
+ * корректно отрабатывает удаление меток из проекта.
+ *
+ * Производительность (внимание, N+1):
+ *  — 1 SELECT всех deployments проекта;
+ *  — N SELECT'ов merge_requests (по одному на каждый деплой);
+ *  — N INSERT'ов в deployment_merge_requests (ON CONFLICT DO NOTHING);
+ *  — до N UPDATE'ов deployments при поднятии isHotfix/isRevert.
+ * Для MVP-проекта с десятками-сотнями деплоев — приемлемо. При росте до
+ * тысяч деплоев и частых синков (10 минут) — оптимизация описана в
+ * ДОРАБОТКИ.md (1.4 / 1.3): обрабатывать только НОВЫЕ деплои + last,
+ * либо джойнить одним запросом через window-функции Postgres.
+ *
+ * @returns суммарное число пар (deployment, merge_request), затронутых
+ *          в этом прогоне sync (включая уже существовавшие связи —
+ *          ON CONFLICT DO NOTHING не даёт нам точное число «новых»).
+ *          Для отчёта `SyncReport.deploymentMrLinks` менее важна точность,
+ *          чем порядок величины («сколько связей итого процессим»).
+ */
+const linkDeploymentsToMergeRequests = async (
+  projectUid: string,
+  defaultBranch: string
+): Promise<number> => {
+  const projectDeployments = await db
+    .select({
+      uid: deployments.uid,
+      deployedAt: deployments.deployedAt
+    })
+    .from(deployments)
+    .where(eq(deployments.projectUid, projectUid))
+    .orderBy(asc(deployments.deployedAt));
+
+  if (projectDeployments.length === 0) return 0;
+
+  let totalLinks = 0;
+
+  for (let i = 0; i < projectDeployments.length; i += 1) {
+    const current = projectDeployments[i];
+    const prev = i > 0 ? projectDeployments[i - 1] : null;
+
+    // Кандидаты — merged MRs c target_branch == defaultBranch в окне.
+    // Для первого деплоя prev=null → берём все MRs с mergedAt ≤ current.
+    const windowConditions = [
+      eq(mergeRequests.projectUid, projectUid),
+      eq(mergeRequests.targetBranch, defaultBranch),
+      isNotNull(mergeRequests.mergedAt),
+      lte(mergeRequests.mergedAt, current.deployedAt)
+    ];
+    if (prev) {
+      windowConditions.push(gt(mergeRequests.mergedAt, prev.deployedAt));
+    }
+
+    const mrsInWindow = await db
+      .select({
+        uid: mergeRequests.uid,
+        hasHotfixLabel: mergeRequests.hasHotfixLabel,
+        hasRevertLabel: mergeRequests.hasRevertLabel
+      })
+      .from(mergeRequests)
+      .where(and(...windowConditions));
+
+    if (mrsInWindow.length === 0) {
+      // Никаких MR в окне → деплой технический (или истории нет). Флаги
+      // уже сброшены в upsertDeploymentsFromTags, ничего обновлять не нужно.
+      continue;
+    }
+
+    await db
+      .insert(deploymentMergeRequests)
+      .values(
+        mrsInWindow.map((m) => ({
+          deploymentUid: current.uid,
+          mergeRequestUid: m.uid
+        }))
+      )
+      .onConflictDoNothing();
+
+    totalLinks += mrsInWindow.length;
+
+    // Поднять isHotfix/isRevert, если ХОТЯ БЫ один MR в окне помечен.
+    const isHotfix = mrsInWindow.some((m) => m.hasHotfixLabel);
+    const isRevert = mrsInWindow.some((m) => m.hasRevertLabel);
+    if (isHotfix || isRevert) {
+      await db
+        .update(deployments)
+        .set({ isHotfix, isRevert })
+        .where(eq(deployments.uid, current.uid));
+    }
+  }
+
+  return totalLinks;
 };

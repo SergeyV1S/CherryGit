@@ -10,7 +10,11 @@ import * as SyncService from '@/modules/sync/sync.service';
 import { CustomError } from '@/utils/custom_error';
 import { HttpStatus } from '@/utils/enums/http-status';
 
-import type { ConnectProjectDto, UpdateProjectDto } from './dto/connect-project.dto';
+import type {
+  ConnectProjectDto,
+  UpdateIncidentLabelsDto,
+  UpdateProjectDto
+} from './dto/connect-project.dto';
 
 /**
  * Сервис проектов (UC-01: подключение проекта GitLab к CherryGit).
@@ -130,8 +134,8 @@ export const connectProject = async (actorUid: string, dto: ConnectProjectDto) =
           namespace: remote.namespace.full_path,
           defaultBranch: remote.default_branch,
           ...(dto.releaseTagPattern !== undefined && { releaseTagPattern: dto.releaseTagPattern }),
-          ...(dto.hotfixLabel !== undefined && { hotfixLabel: dto.hotfixLabel }),
-          ...(dto.revertLabel !== undefined && { revertLabel: dto.revertLabel })
+          ...(dto.hotfixLabels !== undefined && { hotfixLabels: dto.hotfixLabels }),
+          ...(dto.revertLabels !== undefined && { revertLabels: dto.revertLabels })
         })
         .returning();
 
@@ -192,7 +196,7 @@ export const connectProject = async (actorUid: string, dto: ConnectProjectDto) =
 /**
  * Обновление настроек проекта. Допустимые изменения:
  *  — releaseTagPattern (glob тегов деплоя)
- *  — hotfixLabel / revertLabel (метки MR для CFR)
+ *  — hotfixLabels / revertLabels (наборы меток MR для CFR, FR-03)
  *  — teamUids (полная замена набора команд)
  */
 export const updateProject = async (uid: string, dto: UpdateProjectDto, actorUid: string) => {
@@ -214,8 +218,8 @@ export const updateProject = async (uid: string, dto: UpdateProjectDto, actorUid
 
   const patch: Partial<typeof projects.$inferInsert> = {};
   if (dto.releaseTagPattern !== undefined) patch.releaseTagPattern = dto.releaseTagPattern;
-  if (dto.hotfixLabel !== undefined) patch.hotfixLabel = dto.hotfixLabel;
-  if (dto.revertLabel !== undefined) patch.revertLabel = dto.revertLabel;
+  if (dto.hotfixLabels !== undefined) patch.hotfixLabels = dto.hotfixLabels;
+  if (dto.revertLabels !== undefined) patch.revertLabels = dto.revertLabels;
 
   const updated = await db.transaction(async (tx) => {
     let result = existing;
@@ -284,9 +288,68 @@ export const deleteProject = async (actorUid: string, uid: string) => {
 };
 
 /**
+ * Точечное обновление наборов меток инцидентов (FR-03, доработка 1.4).
+ *
+ * Отдельный endpoint от общего PATCH удобен тем, что в журнале аудита
+ * остаётся «срез до/после» именно по меткам, не размываясь другими
+ * полями (releaseTagPattern, teamUids).
+ *
+ * После обновления админу следует вызвать `triggerResync` — текущие записи
+ * `merge_requests.hasHotfixLabel`/`hasRevertLabel` и `deployments.isHotfix`/
+ * `isRevert` пересчитаются на основе новых меток (см. sync.service:
+ * upsertMergeRequest и linkDeploymentsToMergeRequests).
+ */
+export const updateIncidentLabels = async (
+  actorUid: string,
+  uid: string,
+  dto: UpdateIncidentLabelsDto
+) => {
+  const [existing] = await db.select().from(projects).where(eq(projects.uid, uid));
+  if (!existing) {
+    throw new CustomError(HttpStatus.NOT_FOUND, 'Project not found');
+  }
+
+  const patch: Partial<typeof projects.$inferInsert> = {};
+  if (dto.hotfixLabels !== undefined) patch.hotfixLabels = dto.hotfixLabels;
+  if (dto.revertLabels !== undefined) patch.revertLabels = dto.revertLabels;
+
+  const [updated] = await db
+    .update(projects)
+    .set(patch)
+    .where(eq(projects.uid, uid))
+    .returning();
+
+  // Защита от гонки: между SELECT (existing) и UPDATE проект мог быть удалён
+  // конкурирующим запросом. Без проверки `updated.hotfixLabels` упал бы по
+  // обращению к undefined.
+  if (!updated) {
+    throw new CustomError(HttpStatus.NOT_FOUND, 'Project not found');
+  }
+
+  await recordAuditLog({
+    userUid: actorUid,
+    action: 'project.incident_labels_updated',
+    entityType: 'project',
+    entityId: uid,
+    details: {
+      before: {
+        hotfixLabels: existing.hotfixLabels,
+        revertLabels: existing.revertLabels
+      },
+      after: {
+        hotfixLabels: updated.hotfixLabels,
+        revertLabels: updated.revertLabels
+      }
+    }
+  });
+
+  return updated;
+};
+
+/**
  * Форсированный пересбор данных проекта (admin tool).
  * Вызывает SyncService.syncProject синхронно и возвращает результат.
- * Используется когда админ изменил releaseTagPattern / hotfixLabel и
+ * Используется когда админ изменил releaseTagPattern / hotfixLabels и
  * нужно переклассифицировать существующие теги/MR.
  */
 export const triggerResync = async (actorUid: string, uid: string) => {
