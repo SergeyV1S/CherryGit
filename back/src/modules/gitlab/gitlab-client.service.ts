@@ -61,6 +61,11 @@ export class GitlabClient {
     return this.paginate<GitlabProject>('/projects', { membership: 'true', simple: 'false' });
   }
 
+  /** Один проект по его числовому ID на стороне GitLab. */
+  async fetchProject(gitlabProjectId: number): Promise<GitlabProject> {
+    return this.requestJson<GitlabProject>('GET', `/projects/${gitlabProjectId}`);
+  }
+
   /**
    * Коммиты проекта.
    * @param since ISO-метка; если задана — возвращаются коммиты после неё (инкрементальный sync).

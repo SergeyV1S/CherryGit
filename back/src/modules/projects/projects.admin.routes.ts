@@ -16,6 +16,9 @@ router.get('/:uid', ProjectsController.getProject);
 router.patch('/:uid', ProjectsController.updateProject);
 router.delete('/:uid', ProjectsController.deleteProject);
 
+// Форсированный пересбор данных проекта (доработка 1.2 — UC-01 post-action)
+router.post('/:uid/resync', ProjectsController.triggerResync);
+
 // Разметка модулей кодовой базы (для Bus Factor — FR-10)
 router.get('/:uid/code-modules', ProjectsController.listCodeModules);
 router.post('/:uid/code-modules', ProjectsController.createCodeModule);

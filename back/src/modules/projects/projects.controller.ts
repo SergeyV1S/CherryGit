@@ -5,9 +5,18 @@ import { param } from '@/lib/request-params';
 import { HttpStatus } from '@/utils/enums/http-status';
 
 import * as CodeModulesService from './code-modules.service';
+import {
+  connectProjectSchema,
+  createCodeModuleSchema,
+  updateProjectSchema
+} from './dto/connect-project.dto';
 import * as ProjectsService from './projects.service';
 
-export async function listProjects(_req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function listProjects(
+  _req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
   try {
     const result = await ProjectsService.listProjects();
     sendResponse(res, HttpStatus.OK, result);
@@ -16,7 +25,11 @@ export async function listProjects(_req: Request, res: Response, next: NextFunct
   }
 }
 
-export async function getProject(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function getProject(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
   try {
     const result = await ProjectsService.getProject(param(req, 'uid'));
     sendResponse(res, HttpStatus.OK, result);
@@ -31,7 +44,8 @@ export async function connectProject(
   next: NextFunction
 ): Promise<void> {
   try {
-    const result = await ProjectsService.connectProject(req.user!.uid, req.body);
+    const dto = connectProjectSchema.parse(req.body);
+    const result = await ProjectsService.connectProject(req.user!.uid, dto);
     sendResponse(res, HttpStatus.CREATED, result);
   } catch (error) {
     next(error);
@@ -44,7 +58,8 @@ export async function updateProject(
   next: NextFunction
 ): Promise<void> {
   try {
-    const result = await ProjectsService.updateProject(param(req, 'uid'), req.body);
+    const dto = updateProjectSchema.parse(req.body);
+    const result = await ProjectsService.updateProject(param(req, 'uid'), dto, req.user!.uid);
     sendResponse(res, HttpStatus.OK, result);
   } catch (error) {
     next(error);
@@ -59,6 +74,19 @@ export async function deleteProject(
   try {
     await ProjectsService.deleteProject(req.user!.uid, param(req, 'uid'));
     sendResponse(res, HttpStatus.NO_CONTENT, null);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function triggerResync(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const result = await ProjectsService.triggerResync(req.user!.uid, param(req, 'uid'));
+    sendResponse(res, HttpStatus.ACCEPTED, result);
   } catch (error) {
     next(error);
   }
@@ -85,7 +113,8 @@ export async function createCodeModule(
   next: NextFunction
 ): Promise<void> {
   try {
-    const result = await CodeModulesService.createCodeModule(param(req, 'uid'), req.body);
+    const dto = createCodeModuleSchema.parse(req.body);
+    const result = await CodeModulesService.createCodeModule(param(req, 'uid'), dto);
     sendResponse(res, HttpStatus.CREATED, result);
   } catch (error) {
     next(error);
@@ -98,7 +127,8 @@ export async function updateCodeModule(
   next: NextFunction
 ): Promise<void> {
   try {
-    const result = await CodeModulesService.updateCodeModule(param(req, 'moduleUid'), req.body);
+    const dto = createCodeModuleSchema.partial().parse(req.body);
+    const result = await CodeModulesService.updateCodeModule(param(req, 'moduleUid'), dto);
     sendResponse(res, HttpStatus.OK, result);
   } catch (error) {
     next(error);
