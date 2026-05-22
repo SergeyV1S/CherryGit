@@ -35,16 +35,44 @@ export interface ChangeFailureRateValue {
   totalDeploys: number;
 }
 
-/** Cycle Time MR: фазы в секундах */
+/**
+ * Cycle Time MR (ВКР FR-09, доработка 2.1) — целиком и по фазам в секундах.
+ *
+ * Все агрегаты — `number | null`:
+ *   `null` означает «нет данных в выборке за период» (пустая выборка после
+ *   фильтрации, например все MR без `approvedAt` → timeInReview = null).
+ *   Это лучше чем `0`, потому что `0` ≠ «отсутствие наблюдения».
+ *
+ * Для прозрачности расчёта (ВКР: «формула в UI») возвращаются:
+ *   — sampleSize:     сколько merged-MR попало в выборку;
+ *   — excludedDrafts: сколько отброшено фильтром Draft/WIP;
+ *   — sampleSizePerPhase: размер не-null выборки каждой фазы (фаза может быть
+ *     меньше общей выборки, если у MR нет firstReviewAt/approvedAt).
+ */
 export interface CycleTimeMrValue {
-  medianTotalSeconds: number;
-  p90TotalSeconds: number;
+  /** Время от открытия MR до мержа (`mergedAt - gitlabCreatedAt`). */
+  medianTotalSeconds: number | null;
+  p90TotalSeconds: number | null;
   phases: {
-    timeToFirstReviewMedianSeconds: number;
-    timeInReviewMedianSeconds: number;
-    timeToMergeAfterApprovalMedianSeconds: number;
+    /** firstReviewAt - gitlabCreatedAt */
+    timeToFirstReviewMedianSeconds: number | null;
+    timeToFirstReviewP90Seconds: number | null;
+    /** approvedAt - firstReviewAt */
+    timeInReviewMedianSeconds: number | null;
+    timeInReviewP90Seconds: number | null;
+    /** mergedAt - approvedAt */
+    timeToMergeAfterApprovalMedianSeconds: number | null;
+    timeToMergeAfterApprovalP90Seconds: number | null;
   };
   sampleSize: number;
+  /** Сколько MR отфильтровано как draft/WIP по заголовку. */
+  excludedDrafts: number;
+  /** Не-null размеры выборок по фазам (MR без firstReview/approve → меньше). */
+  sampleSizePerPhase: {
+    timeToFirstReview: number;
+    timeInReview: number;
+    timeToMergeAfterApproval: number;
+  };
 }
 
 /** MR Size: распределение по бакетам */

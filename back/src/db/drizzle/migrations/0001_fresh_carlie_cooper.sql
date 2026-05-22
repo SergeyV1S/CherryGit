@@ -129,8 +129,8 @@ CREATE TABLE IF NOT EXISTS "projects" (
 	"namespace" text,
 	"default_branch" text,
 	"release_tag_pattern" text DEFAULT 'v*' NOT NULL,
-	"hotfix_labels" text[] DEFAULT hotfix,rollback NOT NULL,
-	"revert_labels" text[] DEFAULT revert NOT NULL,
+	"hotfix_labels" text[] DEFAULT '{hotfix,rollback}'::text[] NOT NULL,
+	"revert_labels" text[] DEFAULT '{revert}'::text[] NOT NULL,
 	CONSTRAINT "uq_project_per_connection" UNIQUE("gitlab_connection_uid","gitlab_project_id")
 );
 --> statement-breakpoint
