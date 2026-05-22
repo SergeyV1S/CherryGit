@@ -61,5 +61,9 @@ export default {
   },
   encryption: {
     tokenKey: env.TOKEN_ENCRYPTION_KEY
+  },
+  sync: {
+    intervalMs: (env.SYNC_INTERVAL_M ? Number(env.SYNC_INTERVAL_M) : 10) * 60 * 1000,
+    runOnStart: env.SYNC_RUN_ON_START === 'true'
   }
 } as const;

@@ -39,7 +39,12 @@ const envSchema = z.object({
    * 64 hex-символа = 32 байта = AES-256.
    * Генерация: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
    */
-  TOKEN_ENCRYPTION_KEY: z.string().length(64, 'TOKEN_ENCRYPTION_KEY must be 32 bytes in hex (64 chars)')
+  TOKEN_ENCRYPTION_KEY: z.string().length(64, 'TOKEN_ENCRYPTION_KEY must be 32 bytes in hex (64 chars)'),
+
+  /** Интервал между прогонами sync-планировщика в минутах. Пусто → 10 минут. */
+  SYNC_INTERVAL_M: z.string().optional(),
+  /** "true" чтобы запустить первый sync-tick сразу при старте приложения. */
+  SYNC_RUN_ON_START: z.string().optional()
 });
 
 export const env = envSchema.parse(process.env);

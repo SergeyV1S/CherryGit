@@ -128,6 +128,7 @@ export const connectProject = async (actorUid: string, dto: ConnectProjectDto) =
           name: remote.name,
           description: remote.description,
           namespace: remote.namespace.full_path,
+          defaultBranch: remote.default_branch,
           ...(dto.releaseTagPattern !== undefined && { releaseTagPattern: dto.releaseTagPattern }),
           ...(dto.hotfixLabel !== undefined && { hotfixLabel: dto.hotfixLabel }),
           ...(dto.revertLabel !== undefined && { revertLabel: dto.revertLabel })

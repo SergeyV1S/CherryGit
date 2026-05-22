@@ -12,6 +12,7 @@ import redisClient from './db/redis';
 import { logger, LoggerStream } from './lib/loger';
 import { sendResponse } from './lib/reponse';
 import router from './modules/main.router';
+import { startScheduler } from './modules/sync/sync.scheduler';
 import swaggerDocument from './swagger.json';
 import { CustomError } from './utils/custom_error';
 import { HttpStatus } from './utils/enums/http-status';
@@ -72,5 +73,13 @@ export const init = (async () => {
   });
   redisClient.connect();
 
-  DI.server = app.listen(port, () => logger.info(`listening in port:${port}`));
+  // Планировщик периодического sync GitLab (FR-02). Запускается ПОСЛЕ старта
+  // listen, чтобы первый tick не пытался отвечать на ещё не открытом сервере.
+  DI.server = app.listen(port, () => {
+    logger.info(`listening in port:${port}`);
+    startScheduler({
+      intervalMs: config.sync.intervalMs,
+      runOnStart: config.sync.runOnStart
+    });
+  });
 })();

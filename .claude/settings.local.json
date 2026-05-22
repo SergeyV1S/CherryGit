@@ -14,7 +14,9 @@
       "Read(//c/Users/serge/AppData/Local/Programs/**)",
       "Bash(node -e ' *)",
       "WebFetch(domain:docs.gitlab.com)",
-      "Bash(npx eslint *)"
+      "Bash(npx eslint *)",
+      "Bash(echo \"exit:$?\")",
+      "Bash(npx drizzle-kit *)"
     ]
   }
 }

@@ -78,6 +78,8 @@ export const projects = pgTable(
     description: text('description'),
     /** Пространство имён (group/subgroup) для отображения */
     namespace: text('namespace'),
+    /** Дефолтная ветка проекта (берётся из GitLab при подключении). Используется sync-пайплайном для fetchCommits */
+    defaultBranch: text('default_branch'),
     /** Glob-паттерн тегов, означающих деплой в продакшен, напр. "v*" */
     releaseTagPattern: text('release_tag_pattern').default('v*').notNull(),
     /** Метка MR, обозначающая хотфикс (для CFR) */
