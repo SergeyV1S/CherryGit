@@ -2,6 +2,8 @@ import { and, count, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 
 import type {
   CycleTimeMrValue,
+  DeploymentFrequencyGranularity,
+  DeploymentFrequencyValue,
   LeadTimeValue,
   MrSizeValue
 } from '@/db/drizzle/schema/metrics/schema';
@@ -20,6 +22,10 @@ import {
   CycleTimeMrCalculator,
   type CycleTimeMrInput
 } from './calculators/cycle-time-mr.calculator';
+import {
+  DeploymentFrequencyCalculator,
+  type DeploymentFrequencyInput
+} from './calculators/deployment-frequency.calculator';
 import {
   LeadTimeCalculator,
   type LeadTimeSample
@@ -362,6 +368,92 @@ export const getTeamLeadTime = async (
     periodEnd,
     projectUids,
     value: calculator.compute(samples, deploymentsConsidered)
+  };
+};
+
+/**
+ * Deployment Frequency — DORA-throughput (ВКР FR-04, доработка 2.4).
+ *
+ * Считает количество successful-деплоев команды в окне периода и
+ * возвращает категорию (elite/high/medium/low) + timeline для графика.
+ *
+ * Алгоритм:
+ *   1. assertTeamAccess(actor, team) — 403/404.
+ *   2. Если у команды нет проектов — пустой результат (count=0, low).
+ *   3. SELECT deployments по проектам команды с `isFailed=false` и
+ *      `deployedAt ∈ [periodStart, periodEnd]`. В MVP `isFailed` всегда
+ *      false (нет интеграции с мониторингом, см. CLAUDE.md «За пределами
+ *      MVP»), но фильтр оставлен ради семантической корректности — DORA
+ *      считает только успешные деплои.
+ *   4. calculator.compute(deploys, periodStart, periodEnd, granularity).
+ *
+ * Окно — `[periodStart, periodEnd]` по `deployedAt` (как 2.3 Lead Time).
+ *
+ * Доступ — LEAD команды / HEAD отдела / ADMIN (см. metrics.routes.ts).
+ * Парная визуализация с CFR (2.5): фронт запрашивает оба эндпоинта и
+ * рендерит рядом (ВКР FR-06 «парная визуализация скорости и качества»).
+ */
+export interface TeamDeploymentFrequencyReport {
+  metricType: 'deployment_frequency';
+  periodStart: Date;
+  periodEnd: Date;
+  teamUid: string;
+  projectUids: string[];
+  value: DeploymentFrequencyValue;
+}
+
+export const getTeamDeploymentFrequency = async (
+  actorUid: string,
+  teamUid: string,
+  periodStart: Date,
+  periodEnd: Date,
+  granularity: DeploymentFrequencyGranularity = 'week'
+): Promise<TeamDeploymentFrequencyReport> => {
+  if (periodEnd < periodStart) {
+    throw new Error('periodEnd must be ≥ periodStart');
+  }
+
+  const { projectUids } = await assertTeamAccess(actorUid, teamUid);
+
+  const calculator = new DeploymentFrequencyCalculator();
+
+  if (projectUids.length === 0) {
+    return {
+      metricType: 'deployment_frequency',
+      teamUid,
+      periodStart,
+      periodEnd,
+      projectUids,
+      value: calculator.compute([], periodStart, periodEnd, granularity)
+    };
+  }
+
+  // Минимальный срез — только `deployedAt`. Фильтр `isFailed=false` оставлен
+  // как explicit-семантика DORA, даже если в MVP isFailed всегда false:
+  // когда появится мониторинг, фильтр заработает «бесплатно».
+  const rows = await db
+    .select({ deployedAt: deployments.deployedAt })
+    .from(deployments)
+    .where(
+      and(
+        inArray(deployments.projectUid, projectUids),
+        eq(deployments.isFailed, false),
+        gte(deployments.deployedAt, periodStart),
+        lte(deployments.deployedAt, periodEnd)
+      )
+    );
+
+  const input: DeploymentFrequencyInput[] = rows.map((r) => ({
+    deployedAt: r.deployedAt
+  }));
+
+  return {
+    metricType: 'deployment_frequency',
+    teamUid,
+    periodStart,
+    periodEnd,
+    projectUids,
+    value: calculator.compute(input, periodStart, periodEnd, granularity)
   };
 };
 

@@ -10,12 +10,13 @@ import * as MetricsController from './metrics.controller';
  * Монтируется поверх /teams/:teamUid (mergeParams для доступа к teamUid).
  *
  * Соответствие матрице доступа ВКР 2.2.7:
- *   /metrics         — DEV (+1) / LEAD (+2) / HEAD (+)
- *   /cycle-time-mr   — LEAD (+2) только
- *   /mr-size         — LEAD (+2) только (парная визуализация с cycle-time-mr)
- *   /lead-time       — LEAD (+2) / HEAD (+)  — DORA throughput
- *   /bus-factor      — LEAD (+2) / HEAD (+)
- *   /anomalies       — LEAD (+2) только
+ *   /metrics               — DEV (+1) / LEAD (+2) / HEAD (+)
+ *   /cycle-time-mr         — LEAD (+2) только
+ *   /mr-size               — LEAD (+2) только (парная с cycle-time-mr)
+ *   /lead-time             — LEAD (+2) / HEAD (+) — DORA throughput
+ *   /deployment-frequency  — LEAD (+2) / HEAD (+) — DORA throughput (парная с CFR)
+ *   /bus-factor            — LEAD (+2) / HEAD (+)
+ *   /anomalies             — LEAD (+2) только
  */
 const router = Router({ mergeParams: true });
 
@@ -39,6 +40,12 @@ router.get(
   '/lead-time',
   requireRole('LEAD', 'HEAD', 'ADMIN'),
   MetricsController.getTeamLeadTime
+);
+
+router.get(
+  '/deployment-frequency',
+  requireRole('LEAD', 'HEAD', 'ADMIN'),
+  MetricsController.getTeamDeploymentFrequency
 );
 
 router.get(

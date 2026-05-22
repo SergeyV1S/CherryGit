@@ -39,12 +39,40 @@ export interface LeadTimeValue {
   excludedMrsWithoutCommits: number;
 }
 
-/** Deployment Frequency: число деплоев и рассчитанная категория */
+/**
+ * Deployment Frequency — DORA-throughput (ВКР FR-04, доработка 2.4).
+ *
+ * Семантика: средняя частота деплоев в продакшен за окно периода.
+ * `count` — число successful-деплоев (с `isFailed=false`) в окне;
+ * `perDay` = count / periodDays (для категоризации DORA).
+ *
+ * Категории (концепция CherryGit, согласовано с DORA State of DevOps):
+ *   elite   — несколько в день         (perDay > 1)
+ *   high    — день — неделя            (1/7 ≤ perDay ≤ 1)
+ *   medium  — неделя — месяц           (1/30 ≤ perDay < 1/7)
+ *   low     — реже (включая 0 deploys) (perDay < 1/30)
+ *
+ * `timeline` — распределение по бакетам времени для графика (`day` /
+ * `week` / `month`); порядок — хронологический, ключ — ISO-строка
+ * начала бакета (для week — понедельник 00:00 UTC).
+ */
+export type DeploymentFrequencyCategory = 'elite' | 'high' | 'low' | 'medium';
+export type DeploymentFrequencyGranularity = 'day' | 'month' | 'week';
+
 export interface DeploymentFrequencyValue {
-  /** elite | high | medium | low */
-  category: string;
+  category: DeploymentFrequencyCategory;
   count: number;
+  /** Среднее число деплоев в день за период (для UI: «X.Y deploys/day»). */
   perDay: number;
+  /** Дней в окне периода (для прозрачности расчёта; ≥1 ради защиты от /0). */
+  periodDays: number;
+  granularity: DeploymentFrequencyGranularity;
+  /**
+   * Распределение по бакетам: ключ — ISO-дата начала бакета,
+   * значение — число деплоев в бакет. Пустые бакеты НЕ дополняются
+   * (UI решает, рисовать ли пропуски как нули).
+   */
+  timeline: { bucket: string; count: number }[];
 }
 
 /** Change Failure Rate: доля неудачных деплоев */
