@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+// eslint-disable-next-line e18e/ban-dependencies
 import 'dotenv/config';
 
 const envSchema = z.object({
@@ -24,22 +25,15 @@ const envSchema = z.object({
   REDIS_HOST: z.string(),
   REDIS_PORT: z.string(),
   REDIS_PASSWORD: z.string(),
-  BUCKET_KEY: z.string().nullable(),
-  BUCKET_SECRET: z.string().nullable(),
-  BUCKET_ENDPOINT: z.string().nullable(),
-  BUCKET_NAME: z.string().nullable(),
-  MAIL_HOST: z.string().nullable(),
-  MAIL_USER: z.string().nullable(),
-  MAIL_PASSWORD: z.string().nullable(),
-  MAIL_FROM: z.string().nullable(),
-  MAIL_PORT: z.string().nullable(),
 
   /**
    * Ключ симметричного шифрования PAT-токенов GitLab (ВКР 2.2.3).
    * 64 hex-символа = 32 байта = AES-256.
    * Генерация: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
    */
-  TOKEN_ENCRYPTION_KEY: z.string().length(64, 'TOKEN_ENCRYPTION_KEY must be 32 bytes in hex (64 chars)'),
+  TOKEN_ENCRYPTION_KEY: z
+    .string()
+    .length(64, 'TOKEN_ENCRYPTION_KEY must be 32 bytes in hex (64 chars)'),
 
   /** Интервал между прогонами sync-планировщика в минутах. Пусто → 10 минут. */
   SYNC_INTERVAL_M: z.string().optional(),

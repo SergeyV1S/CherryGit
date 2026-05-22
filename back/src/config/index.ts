@@ -46,19 +46,6 @@ export default {
       expiresIn: env.REFRESH_TOKEN_EXPIRES_IN
     }
   },
-  bucket: {
-    key: env.BUCKET_KEY,
-    secret: env.BUCKET_SECRET,
-    name: env.BUCKET_NAME,
-    endpoint: env.BUCKET_ENDPOINT
-  },
-  mail: {
-    host: env.MAIL_HOST,
-    user: env.MAIL_USER,
-    password: env.MAIL_PASSWORD,
-    from: env.MAIL_FROM,
-    port: env.MAIL_PORT
-  },
   encryption: {
     tokenKey: env.TOKEN_ENCRYPTION_KEY
   },

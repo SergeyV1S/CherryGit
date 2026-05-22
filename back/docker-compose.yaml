@@ -53,12 +53,12 @@ services:
       redis:
         condition: service_healthy
     ports:
-      - '8000:8000'
+      - '8080:8080'
     environment:
       APPNAME: ${APPNAME}
-      PORT: ${PORT}
+      PORT: 8080
       NODE_ENV: prod
-      LOCALE: true
+      LOCALE: 'true'
       PRODUCTION_URL: ${PRODUCTION_URL}
       LOGIN_RATE_LIMITER_ATTEMPTS: ${LOGIN_RATE_LIMITER_ATTEMPTS}
       LOGIN_RATE_LIMITER_TIMER_M: ${LOGIN_RATE_LIMITER_TIMER_M}
@@ -76,19 +76,11 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD}
-      BUCKET_KEY: ${BUCKET_KEY}
-      BUCKET_SECRET: ${BUCKET_SECRET}
-      BUCKET_ENDPOINT: ${BUCKET_ENDPOINT}
-      BUCKET_NAME: ${BUCKET_NAME}
-      MAIL_HOST: ${MAIL_HOST}
-      MAIL_USER: ${MAIL_USER}
-      MAIL_PASSWORD: ${MAIL_PASSWORD}
-      MAIL_FROM: ${MAIL_FROM}
-      MAIL_PORT: ${MAIL_PORT}
-      YANDEX_CLIENT_ID: ${YANDEX_CLIENT_ID}
-      YANDEX_CLIENT_SECRET: ${YANDEX_CLIENT_SECRET}
-      YANDEX_BASE_URL: ${YANDEX_BASE_URL}
-      YANDEX_LOGIN_URL: ${YANDEX_LOGIN_URL}
+      # Шифрование PAT-токенов GitLab (ВКР 2.2.3).
+      TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY}
+      # Sync-планировщик (FR-02), опциональные.
+      SYNC_INTERVAL_M: ${SYNC_INTERVAL_M}
+      SYNC_RUN_ON_START: ${SYNC_RUN_ON_START}
     command: sh -c "npm run migrate:prod && npm run start"
     deploy:
       resources:
