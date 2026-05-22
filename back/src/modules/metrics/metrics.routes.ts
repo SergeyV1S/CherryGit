@@ -12,6 +12,7 @@ import * as MetricsController from './metrics.controller';
  * Соответствие матрице доступа ВКР 2.2.7:
  *   /metrics         — DEV (+1) / LEAD (+2) / HEAD (+)
  *   /cycle-time-mr   — LEAD (+2) только
+ *   /mr-size         — LEAD (+2) только (парная визуализация с cycle-time-mr)
  *   /bus-factor      — LEAD (+2) / HEAD (+)
  *   /anomalies       — LEAD (+2) только
  */
@@ -20,7 +21,12 @@ const router = Router({ mergeParams: true });
 router.use(isAuthenticated);
 
 router.get('/metrics', MetricsController.getTeamMetrics);
-router.get('/mr-size', MetricsController.getTeamMrSize);
+
+router.get(
+  '/mr-size',
+  requireRole('LEAD', 'ADMIN'),
+  MetricsController.getTeamMrSize
+);
 
 router.get(
   '/cycle-time-mr',

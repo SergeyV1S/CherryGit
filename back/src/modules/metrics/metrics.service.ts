@@ -1,6 +1,6 @@
 import { and, gte, inArray, lte } from 'drizzle-orm';
 
-import type { CycleTimeMrValue } from '@/db/drizzle/schema/metrics/schema';
+import type { CycleTimeMrValue, MrSizeValue } from '@/db/drizzle/schema/metrics/schema';
 
 import { db } from '@/db/drizzle/connect';
 import { mergeRequests } from '@/db/drizzle/schema/git-data/schema';
@@ -10,6 +10,10 @@ import {
   CycleTimeMrCalculator,
   type CycleTimeMrInput
 } from './calculators/cycle-time-mr.calculator';
+import {
+  MrSizeCalculator,
+  type MrSizeInput
+} from './calculators/mr-size.calculator';
 import { assertTeamAccess } from './lib/team-access';
 
 /**
@@ -140,15 +144,93 @@ export const getTeamCycleTimeMr = async (
 };
 
 /**
- * MR Size — распределение по бакетам (≤50, 51-200, 201-400, 401-800, >800).
+ * MR Size — распределение MR команды по бакетам размеров (ВКР FR-15, доработка 2.2).
+ *
+ * Бакеты фиксированные: ≤50, 51-200, 201-400, 401-800, >800
+ * (по сумме `linesAdded + linesRemoved`). См. `MrSizeCalculator.BUCKETS`.
+ *
+ * Алгоритм идентичен `getTeamCycleTimeMr` (тот же скоуп выборки):
+ *   1. assertTeamAccess(actor, team) — 403/404.
+ *   2. Если у команды нет проектов — пустой результат (sampleSize=0).
+ *   3. SELECT merged MRs по проектам команды, mergedAt ∈ [start, end].
+ *   4. compute() — медиана/p90/бакеты, отброс draft/WIP по заголовку.
+ *
+ * Окно — по `mergedAt` (стабильность исторических замеров).
+ *
+ * Доступ — LEAD команды / HEAD отдела / ADMIN (см. metrics.routes.ts).
+ *
+ * Парная визуализация (ВКР FR-06):
+ *   MR Size без Cycle Time — половина картины. В дашборде тимлида они
+ *   рендерятся рядом: распределение размеров MR + время прохождения по фазам.
+ *   В этом сервисе они разделены на два эндпоинта (отдельные queries клиенту,
+ *   но одинаковый scope), чтобы кешироваться и обновляться независимо.
  */
+export interface TeamMrSizeReport {
+  metricType: 'mr_size';
+  periodStart: Date;
+  periodEnd: Date;
+  teamUid: string;
+  /** Список UID проектов, по которым шла выборка (прозрачность расчёта). */
+  projectUids: string[];
+  value: MrSizeValue;
+}
+
 export const getTeamMrSize = async (
-  _actorUid: string,
-  _teamUid: string,
-  _periodStart: Date,
-  _periodEnd: Date
-) => {
-  notImplemented('metrics.getTeamMrSize');
+  actorUid: string,
+  teamUid: string,
+  periodStart: Date,
+  periodEnd: Date
+): Promise<TeamMrSizeReport> => {
+  if (periodEnd < periodStart) {
+    throw new Error('periodEnd must be ≥ periodStart');
+  }
+
+  const { projectUids } = await assertTeamAccess(actorUid, teamUid);
+
+  const calculator = new MrSizeCalculator();
+
+  if (projectUids.length === 0) {
+    return {
+      metricType: 'mr_size',
+      teamUid,
+      periodStart,
+      periodEnd,
+      projectUids,
+      value: calculator.compute([])
+    };
+  }
+
+  // Минимальный срез — только то, что нужно калькулятору; mergedAt не запрашиваем,
+  // потому что фильтрация уже в WHERE.
+  const rows = await db
+    .select({
+      title: mergeRequests.title,
+      linesAdded: mergeRequests.linesAdded,
+      linesRemoved: mergeRequests.linesRemoved
+    })
+    .from(mergeRequests)
+    .where(
+      and(
+        inArray(mergeRequests.projectUid, projectUids),
+        gte(mergeRequests.mergedAt, periodStart),
+        lte(mergeRequests.mergedAt, periodEnd)
+      )
+    );
+
+  const input: MrSizeInput[] = rows.map((r) => ({
+    title: r.title,
+    linesAdded: r.linesAdded,
+    linesRemoved: r.linesRemoved
+  }));
+
+  return {
+    metricType: 'mr_size',
+    teamUid,
+    periodStart,
+    periodEnd,
+    projectUids,
+    value: calculator.compute(input)
+  };
 };
 
 /**

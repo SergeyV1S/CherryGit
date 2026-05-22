@@ -19,44 +19,50 @@ export const getUserByUID = async (uid: string) => {
 };
 
 export const getUserByLoginData = async (loginData: LoginUserDto) => {
-  try {
-    if (!loginData) {
-      throw new CustomError(HttpStatus.BAD_REQUEST);
-    }
-    const user = await db
-      .select()
-      .from(users)
-      .where(or(eq(users.mail, loginData.mail), eq(users.phone, loginData.phone)));
-    return user[0];
-  } catch (error) {
-    throw error;
+  if (!loginData) {
+    throw new CustomError(HttpStatus.BAD_REQUEST);
   }
+
+  // CRITICAL: ранее использовался `or(eq(mail, ...), eq(phone, ...))`. Если в
+  // запросе нет phone (или передан null), Drizzle превращает `eq(phone, null)`
+  // в `phone IS NULL`, и OR-ветка цепляет ПЕРВОГО пользователя без телефона.
+  // Это account-takeover, потому что злоумышленник может прислать чужой mail и
+  // пустой phone — и попасть на безтелефонного юзера (часто это админ-seed).
+  // Фикс: ветки добавляются только при реально присланных значениях.
+  const conditions = [];
+  if (loginData.mail) conditions.push(eq(users.mail, loginData.mail));
+  if (loginData.phone) conditions.push(eq(users.phone, loginData.phone));
+  if (conditions.length === 0) {
+    throw new CustomError(HttpStatus.BAD_REQUEST);
+  }
+
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(conditions.length === 1 ? conditions[0] : or(...conditions));
+  return user;
 };
 
 export const createUser = async (createUserDto: CreateUserDto) => {
-  try {
-    const tryUser = await db.select().from(users).where(eq(users.mail, createUserDto.mail));
-    if (tryUser.length > 0) {
-      throw new CustomError(HttpStatus.CONFLICT);
-    }
-
-    if (createUserDto.password) {
-      const hashPassword = await hash(createUserDto.password, 10);
-      createUserDto.password = hashPassword;
-    }
-
-    const user = await db
-      .insert(users)
-      .values({ ...createUserDto })
-      .returning();
-
-    if (createUserDto.password) {
-      await db.update(users).set({ password: createUserDto.password });
-    }
-    return user[0];
-  } catch (error) {
-    throw error;
+  const tryUser = await db.select().from(users).where(eq(users.mail, createUserDto.mail));
+  if (tryUser.length > 0) {
+    throw new CustomError(HttpStatus.CONFLICT);
   }
+
+  if (createUserDto.password) {
+    createUserDto.password = await hash(createUserDto.password, 10);
+  }
+
+  // CRITICAL: открытый /api/auth/register НЕ должен позволять самоназначить
+  // привилегированную роль через body. role игнорируется и принудительно
+  // ставится DEVELOPER. Поднять до LEAD/HEAD/ADMIN может только админ через
+  // /api/admin/users (когда модуль будет реализован — см. ДОРАБОТКИ 4.3).
+  const [user] = await db
+    .insert(users)
+    .values({ ...createUserDto, role: 'DEVELOPER' })
+    .returning();
+
+  return user;
 };
 
 export const getUserProfile = async (userUid: string) => {

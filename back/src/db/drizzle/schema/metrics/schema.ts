@@ -75,15 +75,36 @@ export interface CycleTimeMrValue {
   };
 }
 
-/** MR Size: распределение по бакетам */
+/**
+ * MR Size — распределение MR по бакетам размеров (ВКР FR-15, доработка 2.2).
+ *
+ * Бакеты фиксированные (по сумме `linesAdded + linesRemoved`):
+ *   ≤50, 51-200, 201-400, 401-800, >800
+ * Порядок бакетов в массиве — от меньшего к большему (для столбчатой
+ * диаграммы это естественный X-axis: маленькие MR слева).
+ *
+ * Все агрегаты — `number | null`:
+ *   `null` означает пустую выборку (после фильтрации Draft/WIP).
+ *
+ * Для прозрачности расчёта (ВКР: «формула в UI») возвращаются:
+ *   — sampleSize:     сколько MR попало в выборку;
+ *   — excludedDrafts: сколько отброшено фильтром Draft/WIP (как в 2.1).
+ */
 export interface MrSizeValue {
   buckets: {
     /** ≤50 | 51-200 | 201-400 | 401-800 | >800 */
     label: string;
     count: number;
+    /** Доля бакета в выборке, 0..100, округлено до 2 знаков. 0 при пустой выборке. */
     percent: number;
   }[];
-  medianLinesChanged: number;
+  /** Медиана суммы (linesAdded + linesRemoved) по MR в выборке. */
+  medianLinesChanged: number | null;
+  /** 90-й перцентиль той же выборки — показывает «хвост» крупных MR. */
+  p90LinesChanged: number | null;
+  sampleSize: number;
+  /** Сколько MR отфильтровано как draft/WIP по заголовку. */
+  excludedDrafts: number;
 }
 
 /** Bus Factor: число активных контрибьюторов по модулям */
