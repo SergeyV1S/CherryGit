@@ -75,11 +75,61 @@ export interface DeploymentFrequencyValue {
   timeline: { bucket: string; count: number }[];
 }
 
-/** Change Failure Rate: доля неудачных деплоев */
+/**
+ * Change Failure Rate — DORA-instability (ВКР FR-04, доработка 2.5).
+ *
+ * Семантика (CherryGit MVP, согласовано с 1.4):
+ *   CFR = count(deployments с isHotfix OR isRevert) / count(all deployments) × 100%
+ *
+ * Парная метрика к Deployment Frequency (ВКР FR-06: «парная визуализация
+ * скорости и качества»). Эндпоинты разделены — фронт делает два запроса
+ * параллельно и рендерит рядом; granularity у обоих метрик совпадает.
+ *
+ * Категоризация (DORA Accelerate 2023, упрощённые пороги для CherryGit):
+ *   elite   — ≤ 15%
+ *   high    — ≤ 30%
+ *   medium  — ≤ 45%
+ *   low     — > 45%
+ *   `null`  — totalDeploys=0 (CFR не определён, не путать с «ideally 0%»)
+ *
+ * Намеренное упрощение MVP (см. ДОРАБОТКИ 1.4): помечается _fix_-deploy
+ * (тот, что содержит hotfix-MR), а не _broken_-deploy (тот, что был
+ * сломан перед хотфиксом). Числитель/знаменатель совпадают, но семантика
+ * атрибуции отличается; для канонической DORA нужна интеграция с
+ * системой инцидент-менеджмента (вне MVP).
+ */
+export type ChangeFailureRateCategory = 'elite' | 'high' | 'low' | 'medium';
+
 export interface ChangeFailureRateValue {
-  failedDeploys: number;
-  ratePercent: number;
   totalDeploys: number;
+  /** Деплои с isHotfix=true OR isRevert=true (дедуплицированы — один deploy = одна 1). */
+  failedDeploys: number;
+  /** Процент 0..100 (округлено до 2 знаков), null-safe (0 при totalDeploys=0). */
+  ratePercent: number;
+  /** Категория DORA; null если totalDeploys=0 (CFR не определён). */
+  category: ChangeFailureRateCategory | null;
+  /**
+   * Разбивка failed по типу метки. Сумма `hotfixDeploys + revertDeploys`
+   * может быть БОЛЬШЕ `failedDeploys`, если один deploy одновременно
+   * isHotfix=true И isRevert=true (например, MR имел и `hotfix`, и `rollback`
+   * метки одновременно — это допустимо моделью).
+   */
+  breakdown: {
+    hotfixDeploys: number;
+    revertDeploys: number;
+  };
+  granularity: DeploymentFrequencyGranularity;
+  /**
+   * Распределение по бакетам времени, парное с DF.timeline.
+   * Пустые бакеты НЕ дополняются (UI решает, рисовать ли пропуски).
+   */
+  timeline: {
+    bucket: string;
+    totalDeploys: number;
+    failedDeploys: number;
+    /** Процент 0..100 в бакете; 0 при totalDeploys=0 в бакете. */
+    ratePercent: number;
+  }[];
 }
 
 /**

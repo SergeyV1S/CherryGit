@@ -15,6 +15,7 @@ import * as MetricsController from './metrics.controller';
  *   /mr-size               — LEAD (+2) только (парная с cycle-time-mr)
  *   /lead-time             — LEAD (+2) / HEAD (+) — DORA throughput
  *   /deployment-frequency  — LEAD (+2) / HEAD (+) — DORA throughput (парная с CFR)
+ *   /change-failure-rate   — LEAD (+2) / HEAD (+) — DORA instability (парная с DF)
  *   /bus-factor            — LEAD (+2) / HEAD (+)
  *   /anomalies             — LEAD (+2) только
  */
@@ -46,6 +47,12 @@ router.get(
   '/deployment-frequency',
   requireRole('LEAD', 'HEAD', 'ADMIN'),
   MetricsController.getTeamDeploymentFrequency
+);
+
+router.get(
+  '/change-failure-rate',
+  requireRole('LEAD', 'HEAD', 'ADMIN'),
+  MetricsController.getTeamChangeFailureRate
 );
 
 router.get(

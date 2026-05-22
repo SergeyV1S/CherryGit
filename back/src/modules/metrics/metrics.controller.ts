@@ -132,6 +132,29 @@ export async function getTeamDeploymentFrequency(
   }
 }
 
+export async function getTeamChangeFailureRate(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { periodStart, periodEnd } = parsePeriod(req);
+    // Тот же granularity-whitelist, что и у DF — гарантирует совпадение
+    // временных шкал при парной визуализации (ВКР FR-06).
+    const granularity = parseGranularity(queryString(req, 'granularity'));
+    const result = await MetricsService.getTeamChangeFailureRate(
+      req.user!.uid,
+      param(req, 'teamUid'),
+      periodStart,
+      periodEnd,
+      granularity
+    );
+    sendResponse(res, HttpStatus.OK, result);
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function getTeamBusFactor(
   req: Request,
   res: Response,

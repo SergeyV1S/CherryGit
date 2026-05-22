@@ -1,6 +1,7 @@
 import { and, count, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 
 import type {
+  ChangeFailureRateValue,
   CycleTimeMrValue,
   DeploymentFrequencyGranularity,
   DeploymentFrequencyValue,
@@ -18,6 +19,10 @@ import {
 } from '@/db/drizzle/schema/git-data/schema';
 import { notImplemented } from '@/lib/not-implemented';
 
+import {
+  ChangeFailureRateCalculator,
+  type ChangeFailureRateInput
+} from './calculators/change-failure-rate.calculator';
 import {
   CycleTimeMrCalculator,
   type CycleTimeMrInput
@@ -454,6 +459,102 @@ export const getTeamDeploymentFrequency = async (
     periodEnd,
     projectUids,
     value: calculator.compute(input, periodStart, periodEnd, granularity)
+  };
+};
+
+/**
+ * Change Failure Rate — DORA-instability (ВКР FR-04, доработка 2.5).
+ *
+ * Парная метрика к Deployment Frequency (ВКР FR-06: «парная визуализация
+ * скорости и качества»). Здесь сервисы разделены — фронт делает два
+ * запроса параллельно; общая `granularity` обеспечивает совпадение
+ * временных шкал DF и CFR.
+ *
+ * Алгоритм:
+ *   1. assertTeamAccess(actor, team) — 403/404.
+ *   2. Если у команды нет проектов — пустой результат (totalDeploys=0,
+ *      category=null).
+ *   3. SELECT deployments по проектам команды (deployedAt в окне, isFailed=false).
+ *      `isHotfix/isRevert` уже проставлены sync-пайплайном (см. 1.4
+ *      `linkDeploymentsToMergeRequests`).
+ *   4. calculator.compute(deploys, granularity) — числитель, знаменатель,
+ *      процент, категория, breakdown, timeline.
+ *
+ * Окно — `[periodStart, periodEnd]` по `deployedAt` (как 2.3-2.4).
+ *
+ * Доступ — LEAD команды / HEAD отдела / ADMIN (как 2.3-2.4 DORA).
+ *
+ * Семантика `failedDeploys` см. 1.4 / `ChangeFailureRateValue` — MVP-упрощение
+ * (помечается _fix_-deploy, а не _broken_-deploy). Численно эквивалентно.
+ */
+export interface TeamChangeFailureRateReport {
+  metricType: 'change_failure_rate';
+  periodStart: Date;
+  periodEnd: Date;
+  teamUid: string;
+  projectUids: string[];
+  value: ChangeFailureRateValue;
+}
+
+export const getTeamChangeFailureRate = async (
+  actorUid: string,
+  teamUid: string,
+  periodStart: Date,
+  periodEnd: Date,
+  granularity: DeploymentFrequencyGranularity = 'week'
+): Promise<TeamChangeFailureRateReport> => {
+  if (periodEnd < periodStart) {
+    throw new Error('periodEnd must be ≥ periodStart');
+  }
+
+  const { projectUids } = await assertTeamAccess(actorUid, teamUid);
+
+  const calculator = new ChangeFailureRateCalculator();
+
+  if (projectUids.length === 0) {
+    return {
+      metricType: 'change_failure_rate',
+      teamUid,
+      periodStart,
+      periodEnd,
+      projectUids,
+      value: calculator.compute([], granularity)
+    };
+  }
+
+  // WHERE синхронизирован с 2.4 (getTeamDeploymentFrequency): тот же фильтр
+  // проектов + isFailed=false + окно. Гарантирует, что знаменатель CFR
+  // совпадает с количеством деплоев в DF на том же периоде — иначе
+  // парный график был бы рассинхронизирован.
+  const rows = await db
+    .select({
+      deployedAt: deployments.deployedAt,
+      isHotfix: deployments.isHotfix,
+      isRevert: deployments.isRevert
+    })
+    .from(deployments)
+    .where(
+      and(
+        inArray(deployments.projectUid, projectUids),
+        eq(deployments.isFailed, false),
+        gte(deployments.deployedAt, periodStart),
+        lte(deployments.deployedAt, periodEnd)
+      )
+    );
+
+  const input: ChangeFailureRateInput[] = rows.map((r) => ({
+    deployedAt: r.deployedAt,
+    isHotfix: r.isHotfix,
+    isRevert: r.isRevert
+  }));
+
+  return {
+    metricType: 'change_failure_rate',
+    teamUid,
+    periodStart,
+    periodEnd,
+    projectUids,
+    value: calculator.compute(input, granularity)
   };
 };
 
