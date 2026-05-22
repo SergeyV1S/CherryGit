@@ -1,8 +1,17 @@
-import { notImplemented } from '@/lib/not-implemented';
+import { and, desc, eq, gte, lte } from 'drizzle-orm';
+
+import { db } from '@/db/drizzle/connect';
+import { auditLogs } from '@/db/drizzle/schema/metrics/schema';
+import { logger } from '@/lib/loger';
 
 /**
- * Чтение журнала аудита (ВКР 2.2.3, 2.2.7).
- * Доступ — только ADMIN.
+ * Журнал аудита (ВКР 2.2.3, 2.2.7).
+ * Доступ к чтению — только ADMIN.
+ *
+ * Принцип: запись в журнал НЕ должна ломать бизнес-операцию.
+ * recordAuditLog внутри ловит ошибки и логирует warning — операция
+ * (подключение проекта, изменение команды и т.п.) считается успешной
+ * даже если запись аудита не прошла.
  */
 
 export interface AuditQueryFilter {
@@ -15,17 +24,53 @@ export interface AuditQueryFilter {
   userUid?: string;
 }
 
-export const listAuditLogs = async (_filter: AuditQueryFilter) => {
-  notImplemented('audit.listAuditLogs');
+export interface AuditLogEntry {
+  action: string;
+  details?: Record<string, unknown>;
+  entityId?: string;
+  entityType: string;
+  userUid?: string;
+}
+
+/**
+ * Записать событие в журнал аудита.
+ * Никогда не пробрасывает исключение — аудит не критичнее бизнес-операции.
+ */
+export const recordAuditLog = async (data: AuditLogEntry): Promise<void> => {
+  try {
+    await db.insert(auditLogs).values({
+      userUid: data.userUid,
+      action: data.action,
+      entityType: data.entityType,
+      entityId: data.entityId,
+      details: data.details
+    });
+  } catch (error) {
+    logger.warn(
+      `Failed to record audit log (action=${data.action}, entity=${data.entityType}): ${(error as Error).message}`
+    );
+  }
 };
 
-/** Запись события в журнал. Вызывается из других сервисов после успешного действия. */
-export const recordAuditLog = async (_data: {
-  userUid?: string;
-  action: string;
-  entityType: string;
-  entityId?: string;
-  details?: Record<string, unknown>;
-}) => {
-  notImplemented('audit.recordAuditLog');
+/**
+ * Прочитать журнал аудита с фильтрацией и пагинацией.
+ * Сортировка по occurredAt DESC (свежие сверху).
+ */
+export const listAuditLogs = async (filter: AuditQueryFilter) => {
+  const conditions = [];
+  if (filter.userUid) conditions.push(eq(auditLogs.userUid, filter.userUid));
+  if (filter.action) conditions.push(eq(auditLogs.action, filter.action));
+  if (filter.entityType) conditions.push(eq(auditLogs.entityType, filter.entityType));
+  if (filter.from) conditions.push(gte(auditLogs.occurredAt, filter.from));
+  if (filter.to) conditions.push(lte(auditLogs.occurredAt, filter.to));
+
+  const where = conditions.length > 0 ? and(...conditions) : undefined;
+
+  return db
+    .select()
+    .from(auditLogs)
+    .where(where)
+    .orderBy(desc(auditLogs.occurredAt))
+    .limit(filter.limit ?? 100)
+    .offset(filter.offset ?? 0);
 };

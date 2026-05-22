@@ -4,6 +4,10 @@ import { sendResponse } from '@/lib/reponse';
 import { param } from '@/lib/request-params';
 import { HttpStatus } from '@/utils/enums/http-status';
 
+import {
+  createGitlabConnectionSchema,
+  updateGitlabConnectionSchema
+} from './dto/create-connection.dto';
 import * as GitlabService from './gitlab.service';
 
 export async function listConnections(
@@ -12,7 +16,8 @@ export async function listConnections(
   next: NextFunction
 ): Promise<void> {
   try {
-    const result = await GitlabService.listConnections(req.user!.uid);
+    // ADMIN-эндпоинт: возвращаем все подключения, без фильтра по владельцу
+    const result = await GitlabService.listConnections();
     sendResponse(res, HttpStatus.OK, result);
   } catch (error) {
     next(error);
@@ -25,7 +30,8 @@ export async function createConnection(
   next: NextFunction
 ): Promise<void> {
   try {
-    const result = await GitlabService.createConnection(req.user!.uid, req.body);
+    const dto = createGitlabConnectionSchema.parse(req.body);
+    const result = await GitlabService.createConnection(req.user!.uid, dto);
     sendResponse(res, HttpStatus.CREATED, result);
   } catch (error) {
     next(error);
@@ -38,7 +44,8 @@ export async function updateConnection(
   next: NextFunction
 ): Promise<void> {
   try {
-    const result = await GitlabService.updateConnection(param(req, 'uid'), req.body);
+    const dto = updateGitlabConnectionSchema.parse(req.body);
+    const result = await GitlabService.updateConnection(param(req, 'uid'), dto, req.user!.uid);
     sendResponse(res, HttpStatus.OK, result);
   } catch (error) {
     next(error);
@@ -51,8 +58,21 @@ export async function deleteConnection(
   next: NextFunction
 ): Promise<void> {
   try {
-    await GitlabService.deleteConnection(param(req, 'uid'));
+    await GitlabService.deleteConnection(param(req, 'uid'), req.user!.uid);
     sendResponse(res, HttpStatus.NO_CONTENT, null);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function testConnection(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const result = await GitlabService.testConnection(param(req, 'uid'));
+    sendResponse(res, HttpStatus.OK, result);
   } catch (error) {
     next(error);
   }

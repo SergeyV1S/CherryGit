@@ -12,7 +12,8 @@
       "Bash(python3 -c ' *)",
       "Bash(ls /c/Python*)",
       "Read(//c/Users/serge/AppData/Local/Programs/**)",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "WebFetch(domain:docs.gitlab.com)"
     ]
   }
 }

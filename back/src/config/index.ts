@@ -59,5 +59,7 @@ export default {
     from: env.MAIL_FROM,
     port: env.MAIL_PORT
   },
-
+  encryption: {
+    tokenKey: env.TOKEN_ENCRYPTION_KEY
+  }
 } as const;

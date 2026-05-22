@@ -15,6 +15,9 @@ router.post('/connections', GitlabController.createConnection);
 router.patch('/connections/:uid', GitlabController.updateConnection);
 router.delete('/connections/:uid', GitlabController.deleteConnection);
 
+/** Проверить валидность токена подключения без получения проектов (для UI-индикатора) */
+router.post('/connections/:uid/test', GitlabController.testConnection);
+
 /** Получить список проектов с GitLab-инстанса для последующего подключения */
 router.get('/connections/:uid/available-projects', GitlabController.fetchAvailableProjects);
 

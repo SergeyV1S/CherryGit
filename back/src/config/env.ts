@@ -34,6 +34,12 @@ const envSchema = z.object({
   MAIL_FROM: z.string().nullable(),
   MAIL_PORT: z.string().nullable(),
 
+  /**
+   * Ключ симметричного шифрования PAT-токенов GitLab (ВКР 2.2.3).
+   * 64 hex-символа = 32 байта = AES-256.
+   * Генерация: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+   */
+  TOKEN_ENCRYPTION_KEY: z.string().length(64, 'TOKEN_ENCRYPTION_KEY must be 32 bytes in hex (64 chars)')
 });
 
 export const env = envSchema.parse(process.env);
