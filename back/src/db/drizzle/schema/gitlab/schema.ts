@@ -31,6 +31,14 @@ export type SelectGitlabConnection = typeof gitlabConnections.$inferSelect;
  * Сопоставление учётной записи CherryGit с учётной записью GitLab.
  * Один пользователь может иметь разные GitLab-аккаунты на разных инстансах,
  * поэтому идентификация per-connection (UC-03 в ВКР).
+ *
+ * `email` (доработка 4.4) — нужен для резолва commit-авторов:
+ * GitLab `/repository/commits` НЕ возвращает username, только `author_email`.
+ * Без этой колонки `commits.authorUid` всегда null, и Bus Factor по
+ * авторам коммитов деградирует до группировки по email-строкам.
+ * Email опционален: identity может быть зарегистрирована вручную
+ * (только по username, без email — тогда commit-author резолвиться не будет,
+ * только MR/review-author).
  */
 export const userGitlabIdentities = pgTable(
   'user_gitlab_identities',
@@ -43,6 +51,17 @@ export const userGitlabIdentities = pgTable(
       .references(() => gitlabConnections.uid)
       .notNull(),
     gitlabUsername: text('gitlab_username').notNull(),
+    /**
+     * Email пользователя на стороне GitLab. Используется sync'ом для резолва
+     * `commits.authorUid` через `commit.author_email`. Nullable, потому что
+     * GitLab API `/users?username=` возвращает email только если запрашивает
+     * админ инстанса (для обычного PAT — public_email или null).
+     *
+     * Уникальность не enforce'им на уровне БД: разные CherryGit-юзеры могут
+     * иметь одинаковый email на разных GitLab-инстансах. На уровне сервиса
+     * проверяется per-connection.
+     */
+    email: text('email'),
     /** Численный ID пользователя на стороне GitLab */
     gitlabUserId: integer('gitlab_user_id').notNull()
   },

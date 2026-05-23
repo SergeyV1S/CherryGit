@@ -23,6 +23,7 @@ import {
   syncStatuses,
   userGitlabIdentities
 } from '@/db/drizzle/schema/gitlab/schema';
+import { users } from '@/db/drizzle/schema/user/schema';
 import { decryptSecret } from '@/lib/encryption';
 import { logger } from '@/lib/loger';
 import { recordAuditLog } from '@/modules/audit/audit.service';
@@ -380,6 +381,97 @@ const resolveAuthors = async (
   return new Map(rows.map((r) => [r.username, r.userUid]));
 };
 
+/**
+ * Резолвинг commit-авторов по email (доработка 4.4).
+ *
+ * GitLab `/repository/commits` НЕ возвращает username — только `author_email`.
+ * Поэтому commits резолвятся отдельным механизмом — двухуровневой стратегией:
+ *
+ *   1. **Strong-match через `user_gitlab_identities.email`** (per-connection):
+ *      email задан админом при `linkGitlabIdentity` либо подхвачен из
+ *      GitLab API (для админ-PAT'ов). Это «крепкая» привязка.
+ *
+ *   2. **Implicit-match через `users.mail`** (cross-connection fallback):
+ *      если `commit.author_email` совпадает с зарегистрированным
+ *      `users.mail`, резолвим в этого пользователя БЕЗ создания identity.
+ *      Это «авто-резолв при первом sync» из доработки 4.4: разработчик,
+ *      зарегистрированный с корпоративной почтой, сразу попадает в свои
+ *      коммиты — админу НЕ нужно вручную линковать каждого.
+ *
+ * **Почему НЕ создаём identity автоматически из sync**:
+ *   — `user_gitlab_identities.gitlabUserId` — NOT NULL, sync не знает
+ *     реальный ID GitLab-юзера (commit его не несёт);
+ *   — если поставить sentinel `gitlabUserId=0`, последующий ручной
+ *     `linkGitlabIdentity` упадёт на `uq_user_per_connection` (юзер
+ *     уже привязан, хоть и фейково), и админу придётся отдельно чинить;
+ *   — implicit-резолв без persist даёт ТОТ ЖЕ эффект для метрик
+ *     (`commits.authorUid` заполняется), но не блокирует последующую
+ *     корректную привязку через `linkGitlabIdentity`.
+ *
+ * Когда админ через `linkGitlabIdentity` создаст «крепкую» identity с
+ * реальным username/id/email — strong-match начнёт работать ВМЕСТО
+ * implicit'а; новые sync'и используют его автоматически, исторические
+ * commits бэк-резолвятся через `backfillAuthorUidForIdentity` (users-admin).
+ *
+ * Возвращает Map<email_lower, userUid>. Возвращаются только email'ы, для
+ * которых нашли userUid; «неизвестные» commit-emails в результат не
+ * попадают — caller использует `?? null` для authorUid.
+ */
+const resolveCommitAuthorsByEmail = async (
+  connectionUid: string,
+  emails: string[]
+): Promise<Map<string, string>> => {
+  const unique = [...new Set(emails.map((e) => e.toLowerCase()))].filter(
+    (e) => e.length > 0
+  );
+  if (unique.length === 0) return new Map();
+
+  const result = new Map<string, string>();
+
+  // ----- 1. Strong-match через user_gitlab_identities.email -----
+  // SELECT всех identity-записей connection'а — десятки-сотни max, дёшево.
+  // Filter в памяти case-insensitive (Postgres ILIKE-вариант с inArray
+  // не комбинируется естественно — проще in-memory).
+  const identityRows = await db
+    .select({
+      email: userGitlabIdentities.email,
+      userUid: userGitlabIdentities.userUid
+    })
+    .from(userGitlabIdentities)
+    .where(
+      and(
+        eq(userGitlabIdentities.gitlabConnectionUid, connectionUid),
+        isNotNull(userGitlabIdentities.email)
+      )
+    );
+  for (const row of identityRows) {
+    if (!row.email) continue;
+    const lower = row.email.toLowerCase();
+    if (unique.includes(lower) && !result.has(lower)) {
+      result.set(lower, row.userUid);
+    }
+  }
+
+  // ----- 2. Implicit-match через users.mail (cross-connection) -----
+  const stillUnresolved = unique.filter((e) => !result.has(e));
+  if (stillUnresolved.length === 0) return result;
+
+  // Подгружаем все users.mail. Для CherryGit-MVP (десятки-сотни юзеров) —
+  // приемлемо. При росте — заменить на inArray(lower(mail), unresolved)
+  // (потребует `lower()` индекс).
+  const userRows = await db
+    .select({ uid: users.uid, mail: users.mail })
+    .from(users);
+  for (const u of userRows) {
+    const lower = u.mail.toLowerCase();
+    if (stillUnresolved.includes(lower) && !result.has(lower)) {
+      result.set(lower, u.uid);
+    }
+  }
+
+  return result;
+};
+
 // ===========================================================================
 // Upsert: commits
 // ===========================================================================
@@ -387,26 +479,33 @@ const resolveAuthors = async (
 const upsertCommits = async (
   projectUid: string,
   remoteCommits: GitlabCommit[],
-  _connectionUid: string
+  connectionUid: string
 ): Promise<number> => {
   if (remoteCommits.length === 0) return 0;
 
-  // ВАЖНО про резолв автора:
+  // Резолв commit-авторов по email (доработка 4.4):
   //   GitLab /repository/commits НЕ возвращает username — только author_name
-  //   ("Иван Иванов") и author_email. Резолв через user_gitlab_identities
-  //   по username здесь невозможен. Поэтому:
-  //     — в authorGitlabUsername пишем `author_email` (стабильный ID, совпадает
-  //       с git config user.email);
-  //     — authorUid оставляем null — резолв будет выполнен в доработке 4.4
-  //       (commit-author by email mapping), когда в user_gitlab_identities
-  //       появится колонка email.
+  //   ("Иван Иванов") и author_email. Резолв делается через
+  //   `resolveCommitAuthorsByEmail` (strong-match по identities + implicit
+  //   match по users.mail).
+  //
+  // В authorGitlabUsername по-прежнему пишем `author_email` — это **ключ
+  // для бэк-резолва** при последующем `linkGitlabIdentity` (см.
+  // `backfillAuthorUidForIdentity` в users-admin.service). Если в будущем
+  // GitLab начнёт отдавать username для commits — переключимся на него,
+  // схема не сломается.
   //
   // commits.stats отдаёт суммарные additions/deletions; per-file список GitLab
   // не возвращает на /repository/commits — для filesChanged JSONB пишем пустой
   // массив (его наполнит шаг merge_request_changes).
+  const authorMap = await resolveCommitAuthorsByEmail(
+    connectionUid,
+    remoteCommits.map((c) => c.author_email)
+  );
+
   const values = remoteCommits.map((c) => ({
     projectUid,
-    authorUid: null,
+    authorUid: authorMap.get(c.author_email.toLowerCase()) ?? null,
     authorGitlabUsername: c.author_email,
     sha: c.id,
     message: c.message,
@@ -421,7 +520,10 @@ const upsertCommits = async (
       target: [commits.projectUid, commits.sha],
       set: {
         message: sql`excluded.message`,
-        authorGitlabUsername: sql`excluded.author_gitlab_username`
+        authorGitlabUsername: sql`excluded.author_gitlab_username`,
+        // На каждом sync переучитываем authorUid — даёт корректное состояние
+        // после ручного `linkGitlabIdentity` без отдельного бэк-резолва.
+        authorUid: sql`excluded.author_uid`
       }
     });
 

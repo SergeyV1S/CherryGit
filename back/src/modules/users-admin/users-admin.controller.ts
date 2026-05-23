@@ -148,6 +148,26 @@ export async function resetPassword(
   }
 }
 
+// ===== GitLab reconcile (доработка 4.4) =====
+
+/**
+ * Bootstrap-резолв идентичностей: проходит всех users по всем активным
+ * GitLab-подключениям и создаёт identity для совпавших по email.
+ * Возвращает статистику {attempted, created, skipped, failed}.
+ */
+export async function reconcileGitlabIdentities(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const result = await UsersAdminService.reconcileGitlabIdentities(req.user!.uid);
+    sendResponse(res, HttpStatus.OK, result);
+  } catch (error) {
+    next(error);
+  }
+}
+
 // ===== GitLab identities =====
 
 export async function listUserIdentities(

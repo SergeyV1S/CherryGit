@@ -286,6 +286,7 @@ export const getUser = async (uid: string) => {
         gitlabBaseUrl: gitlabConnections.baseUrl,
         gitlabUsername: userGitlabIdentities.gitlabUsername,
         gitlabUserId: userGitlabIdentities.gitlabUserId,
+        email: userGitlabIdentities.email,
         createdAt: userGitlabIdentities.createdAt
       })
       .from(userGitlabIdentities)
@@ -676,6 +677,7 @@ export const listUserIdentities = async (uid: string) => {
       gitlabBaseUrl: gitlabConnections.baseUrl,
       gitlabUsername: userGitlabIdentities.gitlabUsername,
       gitlabUserId: userGitlabIdentities.gitlabUserId,
+      email: userGitlabIdentities.email,
       createdAt: userGitlabIdentities.createdAt
     })
     .from(userGitlabIdentities)
@@ -685,6 +687,234 @@ export const listUserIdentities = async (uid: string) => {
     )
     .where(eq(userGitlabIdentities.userUid, uid))
     .orderBy(asc(gitlabConnections.name));
+};
+
+/**
+ * Бэк-резолв `commits.authorUid` / `merge_requests.authorUid` /
+ * `mr_reviews.reviewerUid` для уже собранных записей после создания
+ * новой identity. Без этого только новые sync-tick'и подхватят свежий
+ * mapping; исторические данные (Bus Factor, personal metrics) до
+ * следующего полного resync продолжат показывать `authorUid=null`.
+ *
+ * Делается ОДНОЙ транзакцией с тремя UPDATE:
+ *   1. commits: WHERE author_gitlab_username = email (legacy: до 4.4 в
+ *      authorGitlabUsername писался email; см. resolveCommitAuthors);
+ *   2. merge_requests: WHERE author_gitlab_username = username;
+ *   3. mr_reviews: WHERE reviewer_gitlab_username = username.
+ *
+ * Резолв per-project: ограничиваем проектами, относящимися к этому connection
+ * (иначе username с GitLab-A может совпасть с username другого юзера на
+ * GitLab-B — данные разъедутся).
+ *
+ * Fire-and-forget вызов из `linkGitlabIdentity` — ошибка не ломает основную
+ * операцию (новая identity всё равно создана).
+ */
+const backfillAuthorUidForIdentity = async (
+  userUid: string,
+  gitlabConnectionUid: string,
+  gitlabUsername: string,
+  email: string | null
+): Promise<{
+  commitsLinked: number;
+  mrsLinked: number;
+  reviewsLinked: number;
+}> => {
+  const { commits, mergeRequests, mrReviews } = await import(
+    '@/db/drizzle/schema/git-data/schema'
+  );
+  const { projects } = await import('@/db/drizzle/schema/gitlab/schema');
+  const { inArray, isNull } = await import('drizzle-orm');
+
+  // Список project_uid'ов на этом connection'е — ограничение scope резолва.
+  const connectionProjects = await db
+    .select({ uid: projects.uid })
+    .from(projects)
+    .where(eq(projects.gitlabConnectionUid, gitlabConnectionUid));
+  const projectUids = connectionProjects.map((p) => p.uid);
+
+  if (projectUids.length === 0) {
+    return { commitsLinked: 0, mrsLinked: 0, reviewsLinked: 0 };
+  }
+
+  // commits резолвятся по email (см. resolveCommitAuthors): в
+  // authorGitlabUsername sync пишет либо email (legacy), либо username —
+  // оба варианта матчим. Только authorUid=null (не перезаписываем уже
+  // привязанные — это могла быть ручная корректировка).
+  let commitsLinked = 0;
+  if (email) {
+    const result = await db
+      .update(commits)
+      .set({ authorUid: userUid })
+      .where(
+        and(
+          inArray(commits.projectUid, projectUids),
+          isNull(commits.authorUid),
+          eq(commits.authorGitlabUsername, email)
+        )
+      )
+      .returning({ uid: commits.uid });
+    commitsLinked = result.length;
+  }
+
+  // merge_requests и mr_reviews: резолв по username.
+  const mrResult = await db
+    .update(mergeRequests)
+    .set({ authorUid: userUid })
+    .where(
+      and(
+        inArray(mergeRequests.projectUid, projectUids),
+        isNull(mergeRequests.authorUid),
+        eq(mergeRequests.authorGitlabUsername, gitlabUsername)
+      )
+    )
+    .returning({ uid: mergeRequests.uid });
+  const mrsLinked = mrResult.length;
+
+  // mr_reviews: project_uid не у самого ревью, поэтому join через mr_uid.
+  // Простой UPDATE с подзапросом — drizzle не поддерживает subquery в WHERE
+  // одного UPDATE напрямую (зависит от диалекта). Используем raw SQL.
+  const reviewsResult = await db.execute(
+    sql`UPDATE mr_reviews
+        SET reviewer_uid = ${userUid}
+        WHERE reviewer_uid IS NULL
+          AND reviewer_gitlab_username = ${gitlabUsername}
+          AND merge_request_uid IN (
+            SELECT uid FROM merge_requests
+            WHERE project_uid = ANY(${projectUids}::uuid[])
+          )`
+  );
+  // `execute` для UPDATE возвращает rowCount в pg-драйвере. Для совместимости
+  // делаем мягкий fallback.
+  const reviewsLinked = Number(
+    (reviewsResult as unknown as { rowCount?: number }).rowCount ?? 0
+  );
+
+  return { commitsLinked, mrsLinked, reviewsLinked };
+};
+
+/**
+ * Reconcile identity для всех проектов на всех GitLab-подключениях:
+ * проходит `users.mail` и пытается создать `user_gitlab_identities` по
+ * совпадению с GitLab-юзером того же email на каждом активном connection.
+ *
+ * Используется в двух сценариях:
+ *   1. Bootstrap: после первой массовой регистрации сотрудников или
+ *      первого `connectProject`, чтобы быстро привязать имеющиеся
+ *      identity без ручного ввода каждой.
+ *   2. После добавления новых GitLab-аккаунтов: повторный прогон
+ *      создаст identity для свежезарегистрированных в GitLab юзеров.
+ *
+ * Идемпотентность: для уже существующих identity (`uq_user_per_connection`)
+ * — пропуск. Возвращает суммарную статистику.
+ *
+ * **Ограничение**: GitLab `/users?search=<email>` отдаёт email только при
+ * PAT'е с правами admin. С обычным PAT'ом search-по-email возвращает пустой
+ * результат, и auto-link не сработает. В этом случае админ должен либо
+ * заранее сохранить email в identity (POST с `email`), либо использовать
+ * username-резолв.
+ */
+export const reconcileGitlabIdentities = async (
+  actorUid: string
+): Promise<{
+  attempted: number;
+  created: number;
+  failed: number;
+  skipped: number;
+}> => {
+  const allUsers = await db
+    .select({ uid: users.uid, mail: users.mail })
+    .from(users);
+  const activeConnections = await db
+    .select()
+    .from(gitlabConnections)
+    .where(eq(gitlabConnections.status, 'active'));
+
+  let attempted = 0;
+  let created = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  for (const connection of activeConnections) {
+    let pat: string;
+    try {
+      pat = decryptSecret(connection.encryptedToken);
+    } catch (err) {
+      logger.warn(
+        `reconcileGitlabIdentities: cannot decrypt PAT for connection ${connection.uid}: ${(err as Error).message}`
+      );
+      failed += 1;
+      continue;
+    }
+    const client = new GitlabClient(connection.baseUrl, pat);
+
+    // Загружаем существующие identity на этом connection одним SELECT'ом —
+    // избегаем N+1 проверок «уже привязан?»
+    const existingRows = await db
+      .select({ userUid: userGitlabIdentities.userUid })
+      .from(userGitlabIdentities)
+      .where(eq(userGitlabIdentities.gitlabConnectionUid, connection.uid));
+    const alreadyLinked = new Set(existingRows.map((r) => r.userUid));
+
+    for (const user of allUsers) {
+      if (alreadyLinked.has(user.uid)) {
+        skipped += 1;
+        continue;
+      }
+      attempted += 1;
+
+      try {
+        // Search по email: GitLab API `/users?search=<email>` — для админ-
+        // PAT'а возвращает совпадение с email-полем. Для обычного PAT'а
+        // email будет undefined, и exact-match не сработает (см.
+        // GitlabClient.searchUsers). Это ограничение GitLab — обходится
+        // ручной привязкой через `linkGitlabIdentity {email}`.
+        const candidates = await client.searchUsers(user.mail);
+
+        const exact = candidates.find(
+          (c) => c.email?.toLowerCase() === user.mail.toLowerCase()
+        );
+        if (!exact) {
+          skipped += 1;
+          continue;
+        }
+
+        // Создаём identity + бэк-резолв исторических данных
+        await db.insert(userGitlabIdentities).values({
+          userUid: user.uid,
+          gitlabConnectionUid: connection.uid,
+          gitlabUsername: exact.username,
+          gitlabUserId: exact.id,
+          email: exact.email ?? user.mail
+        });
+        created += 1;
+        await backfillAuthorUidForIdentity(
+          user.uid,
+          connection.uid,
+          exact.username,
+          exact.email ?? user.mail
+        ).catch(() => undefined);
+      } catch (err) {
+        // 23505 (уже есть) — skip; прочие — failed.
+        if (isUniqueViolation(err)) {
+          skipped += 1;
+        } else {
+          failed += 1;
+          logger.warn(
+            `reconcileGitlabIdentities: user=${user.uid} conn=${connection.uid}: ${(err as Error).message}`
+          );
+        }
+      }
+    }
+  }
+
+  await recordAuditLog({
+    userUid: actorUid,
+    action: 'user.gitlab_identity.reconciled',
+    entityType: 'user',
+    details: { attempted, created, skipped, failed }
+  });
+
+  return { attempted, created, skipped, failed };
 };
 
 /**
@@ -719,8 +949,10 @@ export const linkGitlabIdentity = async (
 
   let gitlabUserId = dto.gitlabUserId;
   let resolvedUsername = dto.gitlabUsername;
+  let resolvedEmail: string | null = dto.email ?? null;
+  const needsApiCall = gitlabUserId === undefined || resolvedEmail === null;
 
-  if (gitlabUserId === undefined) {
+  if (needsApiCall) {
     // Auto-resolve через GitLab API. Расшифровываем PAT только для этого
     // запроса; токен живёт в замыкании client'а — не выходит из функции.
     let pat: string;
@@ -740,10 +972,17 @@ export const linkGitlabIdentity = async (
         `пользователь GitLab "${dto.gitlabUsername}" не найден на инстансе ${connection.baseUrl}`
       );
     }
-    gitlabUserId = gitlabUser.id;
+    if (gitlabUserId === undefined) gitlabUserId = gitlabUser.id;
     // Используем username из ответа GitLab — на случай если админ ввёл с другим
     // регистром (GitLab сохраняет канонический).
     resolvedUsername = gitlabUser.username;
+    // Email: берём из GitLab только если админ не передал свой. GitLab API
+    // отдаёт email пользователя только при PAT'е с правами admin; при обычном
+    // PAT'е поле будет null/undefined — identity сохранится без email,
+    // commit-резолв для этого юзера работать не будет (см. ДОРАБОТКИ 4.4).
+    if (resolvedEmail === null && gitlabUser.email) {
+      resolvedEmail = gitlabUser.email;
+    }
   }
 
   let created;
@@ -754,7 +993,8 @@ export const linkGitlabIdentity = async (
         userUid,
         gitlabConnectionUid: dto.gitlabConnectionUid,
         gitlabUsername: resolvedUsername,
-        gitlabUserId
+        gitlabUserId,
+        email: resolvedEmail
       })
       .returning();
   } catch (error) {
@@ -777,8 +1017,25 @@ export const linkGitlabIdentity = async (
       gitlabConnectionUid: dto.gitlabConnectionUid,
       gitlabUsername: resolvedUsername,
       gitlabUserId,
-      autoResolved: dto.gitlabUserId === undefined
+      email: resolvedEmail,
+      autoResolved: dto.gitlabUserId === undefined,
+      emailResolvedFromGitlab: dto.email === undefined && resolvedEmail !== null
     }
+  });
+
+  // После создания identity бэк-резолвим существующие commits/MR/reviews
+  // этого пользователя в этом connection'е, чтобы новые метрики сразу
+  // подтянули его authorUid (без ожидания следующего sync-tick'а).
+  // Делается fire-and-forget — не блокирует ответ админу.
+  void backfillAuthorUidForIdentity(
+    userUid,
+    dto.gitlabConnectionUid,
+    resolvedUsername,
+    resolvedEmail
+  ).catch((err) => {
+    logger.warn(
+      `backfillAuthorUidForIdentity user=${userUid} username=${resolvedUsername}: ${(err as Error).message}`
+    );
   });
 
   return created;

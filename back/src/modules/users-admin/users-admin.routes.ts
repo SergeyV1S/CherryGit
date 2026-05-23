@@ -24,13 +24,18 @@ import * as UsersAdminController from './users-admin.controller';
  *   GET    /:uid/gitlab-identities      — список привязок к GitLab
  *   POST   /:uid/gitlab-identities      — привязать (с auto-resolve gitlabUserId)
  *   DELETE /:uid/gitlab-identities/:identityUid — снять привязку
+ *
+ *   POST   /gitlab-identities/reconcile — bootstrap-резолв всех юзеров по email
+ *                                         через все активные GitLab-подключения
+ *                                         (доработка 4.4). MUST идти ДО `/:uid`.
  */
 const router = Router();
 
 router.use(isAuthenticated, requireRole('ADMIN'));
 
-// Static-route ДО динамического `/:uid`.
+// Static-routes ДО динамического `/:uid` — иначе express матчит как uid.
 router.get('/stats/by-role', UsersAdminController.countByRole);
+router.post('/gitlab-identities/reconcile', UsersAdminController.reconcileGitlabIdentities);
 
 router.get('/', UsersAdminController.listUsers);
 router.post('/', UsersAdminController.createUser);

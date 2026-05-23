@@ -114,13 +114,22 @@ export const resetPasswordSchema = z.object({
  * `GitlabClient.fetchUserByUsername` (использует расшифрованный PAT
  * connection'а). Это удобно для admin UI — достаточно ввести username.
  *
- * Если передан — используется как есть (override; для случая, когда username
- * на GitLab был переименован и нужно зафиксировать ID).
+ * `email` опционален (доработка 4.4): если не передан, сервис попытается
+ * взять `gitlabUser.email` из ответа GitLab API. Email нужен для резолва
+ * commit-авторов (`commits.authorUid` через `commit.author_email`).
+ * Если email не доступен ни из DTO, ни из GitLab API — identity
+ * сохранится без email, commit-резолв для неё работать не будет.
+ *
+ * Если `gitlabUserId` передан — используется как есть (override; для
+ * случая, когда username на GitLab был переименован и нужно зафиксировать
+ * ID или email вручную).
  */
 export const linkGitlabIdentitySchema = z.object({
   gitlabConnectionUid: UUID,
   gitlabUsername: z.string().min(1, 'gitlabUsername обязателен').max(255),
-  gitlabUserId: z.number().int().positive().optional()
+  gitlabUserId: z.number().int().positive().optional(),
+  /** Email на стороне GitLab (опционально, иначе берётся из GitLab API). */
+  email: z.string().email('некорректный email').max(255).optional()
 });
 
 export type AdminCreateUserDto = z.infer<typeof adminCreateUserSchema>;

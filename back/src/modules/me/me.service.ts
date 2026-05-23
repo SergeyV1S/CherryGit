@@ -77,7 +77,8 @@ export const getCurrentUser = async (userUid: string) => {
       uid: userGitlabIdentities.uid,
       gitlabConnectionUid: userGitlabIdentities.gitlabConnectionUid,
       gitlabUsername: userGitlabIdentities.gitlabUsername,
-      gitlabUserId: userGitlabIdentities.gitlabUserId
+      gitlabUserId: userGitlabIdentities.gitlabUserId,
+      email: userGitlabIdentities.email
     })
     .from(userGitlabIdentities)
     .where(eq(userGitlabIdentities.userUid, userUid));
@@ -104,7 +105,8 @@ export const getMyGitlabIdentities = async (userUid: string) => {
       uid: userGitlabIdentities.uid,
       gitlabConnectionUid: userGitlabIdentities.gitlabConnectionUid,
       gitlabUsername: userGitlabIdentities.gitlabUsername,
-      gitlabUserId: userGitlabIdentities.gitlabUserId
+      gitlabUserId: userGitlabIdentities.gitlabUserId,
+      email: userGitlabIdentities.email
     })
     .from(userGitlabIdentities)
     .where(eq(userGitlabIdentities.userUid, userUid));

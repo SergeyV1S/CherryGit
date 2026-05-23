@@ -81,6 +81,27 @@ export class GitlabClient {
     return exact ?? null;
   }
 
+  /**
+   * Поиск пользователей GitLab по подстроке (email, username, name).
+   *
+   * Используется доработкой 4.4 для авто-резолва идентичностей:
+   * `reconcileGitlabIdentities` зовёт search по `users.mail` и матчит
+   * результат по точному совпадению email.
+   *
+   * ⚠ Важная особенность GitLab API: поле `email` в ответе `/users?search=`
+   * присутствует **только** при PAT'е с правами админа инстанса. Для
+   * обычного PAT'а email будет `undefined`, и auto-match не сработает.
+   * В этом случае admin должен заранее сохранить email вручную через
+   * `linkGitlabIdentity` с явным `email`.
+   *
+   * Документация: https://docs.gitlab.com/api/users/#list-users
+   */
+  async searchUsers(query: string): Promise<GitlabUser[]> {
+    const trimmed = query.trim();
+    if (trimmed.length === 0) return [];
+    return this.paginate<GitlabUser>('/users', { search: trimmed });
+  }
+
   /** Список проектов, в которых состоит владелец токена. */
   async fetchProjects(): Promise<GitlabProject[]> {
     return this.paginate<GitlabProject>('/projects', { membership: 'true', simple: 'false' });
