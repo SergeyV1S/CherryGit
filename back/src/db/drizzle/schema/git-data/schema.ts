@@ -91,6 +91,19 @@ export const mergeRequests = pgTable(
     linesAdded: integer('lines_added').default(0).notNull(),
     linesRemoved: integer('lines_removed').default(0).notNull(),
     filesChangedCount: integer('files_changed_count').default(0).notNull(),
+    /**
+     * Пути файлов, изменённых в MR (`changes[].new_path`), дедуплицированные.
+     * Нужно для Bus Factor (доработка 2.6) — на этих путях резолвится модуль
+     * через `code_modules.pathPattern` либо через fallback «первая директория».
+     *
+     * Источник заполнения — `client.fetchMergeRequestChanges` в `sync.service.ts`
+     * (уже вызывается ради MR Size; здесь дополнительно собирается список
+     * путей, без отдельного GitLab-запроса).
+     *
+     * Default `[]` — при ранних sync до доработки 2.6 поле останется пустым,
+     * Bus Factor для этого периода покажет «нет данных».
+     */
+    filePaths: text('file_paths').array().default([]).notNull(),
     /** true = MR имеет хотя бы одну метку из projects.hotfixLabels */
     hasHotfixLabel: boolean('has_hotfix_label').default(false).notNull(),
     /** true = MR имеет хотя бы одну метку из projects.revertLabels */

@@ -1,6 +1,7 @@
 import { and, count, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 
 import type {
+  BusFactorValue,
   ChangeFailureRateValue,
   CycleTimeMrValue,
   DeploymentFrequencyGranularity,
@@ -17,8 +18,13 @@ import {
   mergeRequests,
   mrCommits
 } from '@/db/drizzle/schema/git-data/schema';
+import { codeModules } from '@/db/drizzle/schema/gitlab/schema';
 import { notImplemented } from '@/lib/not-implemented';
 
+import {
+  BusFactorCalculator,
+  type BusFactorMrInput
+} from './calculators/bus-factor.calculator';
 import {
   ChangeFailureRateCalculator,
   type ChangeFailureRateInput
@@ -559,11 +565,127 @@ export const getTeamChangeFailureRate = async (
 };
 
 /**
- * Bus Factor по модулям кодовой базы за 90 дней (FR-10).
- * Доступ — LEAD команды и HEAD.
+ * Bus Factor по модулям кодовой базы (ВКР FR-10, доработка 2.6).
+ *
+ * Формула:
+ *   BF(module) = count(distinct author с merged MR'ом, затронувшим module,
+ *                       за последние windowDays)
+ *
+ * Источник данных:
+ *   — `merge_requests.filePaths` (заполняется в sync с доработки 2.6);
+ *   — `merge_requests.authorUid`/`authorGitlabUsername`;
+ *   — `code_modules` проектов команды (объединяются — модуль с одинаковым
+ *     именем в разных проектах команды считается ОДНИМ доменным модулем,
+ *     это удобно для микросервисных монорепо: модуль `auth` может жить в
+ *     `core-api` и `web`, но логически один и тот же).
+ *
+ * Алгоритм:
+ *   1. assertTeamAccess(actor, team) — 403/404;
+ *   2. Загрузить merged MR команды за окно (windowDays);
+ *   3. Загрузить `code_modules` всех проектов команды (для resolve);
+ *   4. Сформировать `authorKey` для каждого MR:
+ *        — `uid:<userUid>` если authorUid резолвится;
+ *        — иначе `gitlab:<authorGitlabUsername>`;
+ *   5. calculator.compute(mrs, modules, windowDays).
+ *
+ * Окно — фиксированное в днях (по умолчанию 90, как в концепции).
+ * Параметр periodStart/periodEnd НЕ используется для Bus Factor —
+ * метрика смотрит «сейчас минус windowDays», а не произвольное окно.
+ *
+ * Доступ — LEAD команды / HEAD отдела / ADMIN (см. metrics.routes.ts).
  */
-export const getTeamBusFactor = async (_actorUid: string, _teamUid: string) => {
-  notImplemented('metrics.getTeamBusFactor');
+export interface TeamBusFactorReport {
+  metricType: 'bus_factor';
+  /** Конец окна (по умолчанию `new Date()`). */
+  windowEnd: Date;
+  /** Начало окна (windowEnd − windowDays). */
+  windowStart: Date;
+  teamUid: string;
+  projectUids: string[];
+  value: BusFactorValue;
+}
+
+export const getTeamBusFactor = async (
+  actorUid: string,
+  teamUid: string,
+  windowDays: number = BusFactorCalculator.DEFAULT_WINDOW_DAYS
+): Promise<TeamBusFactorReport> => {
+  if (!Number.isInteger(windowDays) || windowDays < 1) {
+    throw new Error('windowDays must be a positive integer');
+  }
+
+  const { projectUids } = await assertTeamAccess(actorUid, teamUid);
+
+  const windowEnd = new Date();
+  const windowStart = new Date(windowEnd.getTime() - windowDays * 24 * 60 * 60 * 1000);
+
+  const calculator = new BusFactorCalculator();
+
+  if (projectUids.length === 0) {
+    return {
+      metricType: 'bus_factor',
+      teamUid,
+      windowStart,
+      windowEnd,
+      projectUids,
+      value: calculator.compute([], [], windowDays)
+    };
+  }
+
+  // Параллельно тащим:
+  //   (a) merged MR команды в окне с минимальным срезом полей;
+  //   (b) explicit-модули проектов команды.
+  // Module list обычно маленький (<100 строк суммарно), MR — десятки/сотни.
+  const [mrRows, moduleRows] = await Promise.all([
+    db
+      .select({
+        authorUid: mergeRequests.authorUid,
+        authorGitlabUsername: mergeRequests.authorGitlabUsername,
+        filePaths: mergeRequests.filePaths
+      })
+      .from(mergeRequests)
+      .where(
+        and(
+          inArray(mergeRequests.projectUid, projectUids),
+          eq(mergeRequests.state, 'merged'),
+          gte(mergeRequests.mergedAt, windowStart),
+          lte(mergeRequests.mergedAt, windowEnd)
+        )
+      ),
+    db
+      .select({
+        name: codeModules.name,
+        pathPattern: codeModules.pathPattern
+      })
+      .from(codeModules)
+      .where(inArray(codeModules.projectUid, projectUids))
+  ]);
+
+  // Если в разных проектах команды есть модули с одним name + одинаковым
+  // pathPattern, дедуплицируем — Bus Factor смотрит на модуль как на
+  // логическую сущность, а не per-project.
+  const dedupedModules = Array.from(
+    new Map(
+      moduleRows.map((m) => [`${m.name}::${m.pathPattern}`, m] as const)
+    ).values()
+  ).map((m) => ({ name: m.name, pathPattern: m.pathPattern }));
+
+  // authorKey: предпочитаем uid (стабильный CherryGit-ID), fallback на GitLab username.
+  // Это даёт корректный distinct-count даже когда у части авторов
+  // ещё не создана `user_gitlab_identities` (см. ДОРАБОТКИ 4.4).
+  const mrs: BusFactorMrInput[] = mrRows.map((r) => ({
+    authorKey: r.authorUid ? `uid:${r.authorUid}` : `gitlab:${r.authorGitlabUsername}`,
+    filePaths: r.filePaths ?? []
+  }));
+
+  return {
+    metricType: 'bus_factor',
+    teamUid,
+    windowStart,
+    windowEnd,
+    projectUids,
+    value: calculator.compute(mrs, dedupedModules, windowDays)
+  };
 };
 
 /**

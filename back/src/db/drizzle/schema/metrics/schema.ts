@@ -204,14 +204,59 @@ export interface MrSizeValue {
   excludedDrafts: number;
 }
 
-/** Bus Factor: число активных контрибьюторов по модулям */
+/**
+ * Bus Factor по модулям кодовой базы (ВКР FR-10, доработка 2.6).
+ *
+ * Семантика (CherryGit концепция):
+ *   BF(module) = count(distinct authors с merged MR'ом, затронувшим module,
+ *                       за последние windowDays)
+ *
+ * Цветовая маркировка из концепции:
+ *   red    — 1 автор  (один человек — носитель знаний по модулю);
+ *   yellow — 2 автора (минимальная резервная пара);
+ *   green  — ≥3 автора.
+ *
+ * Модуль определяется одним из двух способов:
+ *   1) explicit — `code_modules.pathPattern` (glob) на проекте, заданный
+ *      админом через `/api/admin/projects/:uid/code-modules`;
+ *   2) implicit — первая директория из пути файла (`src/auth/foo.ts` → `auth`,
+ *      `package.json` → `<root>`). Используется как fallback, чтобы Bus Factor
+ *      работал и без явно настроенных модулей.
+ *
+ * `overallBusFactor` = `min(BF(module))` среди ВСЕХ модулей с активностью —
+ * это «самое слабое звено» команды, ради чего метрика и считается.
+ */
+export type BusFactorColor = 'green' | 'red' | 'yellow';
+
 export interface BusFactorValue {
+  /**
+   * Минимум `activeContributors` по всем модулям с активностью.
+   * `null` означает «нет данных» — за окно не нашлось ни одного MR с filePaths
+   * (пустая выборка либо MR ещё не пере-засинхрены после доработки 2.6).
+   */
+  overallBusFactor: number | null;
+  /** Длина окна в днях (по умолчанию 90 — из CLAUDE.md / концепции). */
+  windowDays: number;
+  /** Сколько merged-MR попало в выборку (для UI tooltip «формула расчёта»). */
+  sampleSize: number;
+  /**
+   * Сколько MR в выборке имеют пустой `filePaths`. Если велико — значит
+   * MR засинхрены до доработки 2.6; админу нужен `POST /admin/projects/:uid/resync`
+   * для пере-загрузки изменений.
+   */
+  excludedMrsWithoutPaths: number;
   modules: {
-    path: string;
+    /** Имя/путь модуля. Для explicit — `code_modules.name`, для implicit — первая директория. */
+    name: string;
+    /** Glob-паттерн (для explicit-модулей); null для implicit. */
+    pathPattern: string | null;
+    /** true = модуль выведен из первой директории пути файла (нет настройки в `code_modules`). */
+    isImplicit: boolean;
     activeContributors: number;
+    /** Идентификаторы авторов (`uid:<userUid>` либо `gitlab:<username>` для незарегистрированных). */
     authors: string[];
+    color: BusFactorColor;
   }[];
-  overallBusFactor: number;
 }
 
 export type MetricValue =

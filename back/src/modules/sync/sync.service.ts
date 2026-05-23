@@ -424,6 +424,12 @@ const upsertMergeRequest = async (
   const approvedAt = computeApprovedAt(approvals.approved_by);
   const size = GitlabClient.computeMrSize(changes);
 
+  // Список путей файлов, изменённых в MR (нужен для Bus Factor по модулям —
+  // доработка 2.6). Дедуплицируем по `new_path` (на rename берём текущее
+  // расположение — модуль резолвится по нему). Изменения уже получены
+  // ради MR Size, отдельного GitLab-запроса не делаем.
+  const filePaths = [...new Set(changes.map((c) => c.new_path).filter(Boolean))];
+
   const authors = await resolveAuthors(connectionUid, [remote.author.username]);
 
   // Классификация инцидентов (FR-03, доработка 1.4): MR попадает под hotfix/
@@ -452,6 +458,7 @@ const upsertMergeRequest = async (
       linesAdded: size.linesAdded,
       linesRemoved: size.linesRemoved,
       filesChangedCount: size.filesChanged,
+      filePaths,
       hasHotfixLabel,
       hasRevertLabel
     })
@@ -467,6 +474,7 @@ const upsertMergeRequest = async (
         linesAdded: sql`excluded.lines_added`,
         linesRemoved: sql`excluded.lines_removed`,
         filesChangedCount: sql`excluded.files_changed_count`,
+        filePaths: sql`excluded.file_paths`,
         hasHotfixLabel: sql`excluded.has_hotfix_label`,
         hasRevertLabel: sql`excluded.has_revert_label`
       }

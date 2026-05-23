@@ -133,7 +133,11 @@ export async function createCodeModule(
 ): Promise<void> {
   try {
     const dto = createCodeModuleSchema.parse(req.body);
-    const result = await CodeModulesService.createCodeModule(param(req, 'uid'), dto);
+    const result = await CodeModulesService.createCodeModule(
+      param(req, 'uid'),
+      dto,
+      req.user!.uid
+    );
     sendResponse(res, HttpStatus.CREATED, result);
   } catch (error) {
     next(error);
@@ -147,7 +151,11 @@ export async function updateCodeModule(
 ): Promise<void> {
   try {
     const dto = createCodeModuleSchema.partial().parse(req.body);
-    const result = await CodeModulesService.updateCodeModule(param(req, 'moduleUid'), dto);
+    const result = await CodeModulesService.updateCodeModule(
+      param(req, 'moduleUid'),
+      dto,
+      req.user!.uid
+    );
     sendResponse(res, HttpStatus.OK, result);
   } catch (error) {
     next(error);
@@ -160,7 +168,7 @@ export async function deleteCodeModule(
   next: NextFunction
 ): Promise<void> {
   try {
-    await CodeModulesService.deleteCodeModule(param(req, 'moduleUid'));
+    await CodeModulesService.deleteCodeModule(param(req, 'moduleUid'), req.user!.uid);
     sendResponse(res, HttpStatus.NO_CONTENT, null);
   } catch (error) {
     next(error);

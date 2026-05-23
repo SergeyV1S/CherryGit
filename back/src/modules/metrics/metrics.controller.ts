@@ -33,6 +33,24 @@ const parseGranularity = (raw: string | undefined): DeploymentFrequencyGranulari
   );
 };
 
+/**
+ * Парсинг query-параметра `windowDays` для 2.6 (Bus Factor).
+ * Дефолт — 90 (CLAUDE.md / концепция CherryGit «последние 90 дней»).
+ * Допустимый диапазон 1..365: меньше дня бессмысленно, больше года —
+ * выходит за пределы «активной» доменной интерпретации Bus Factor.
+ */
+const parseWindowDays = (raw: string | undefined): number => {
+  if (!raw) return 90;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1 || n > 365) {
+    throw new CustomError(
+      HttpStatus.BAD_REQUEST,
+      `windowDays must be an integer in [1, 365], got "${raw}"`
+    );
+  }
+  return n;
+};
+
 export async function getTeamMetrics(
   req: Request,
   res: Response,
@@ -161,7 +179,15 @@ export async function getTeamBusFactor(
   next: NextFunction
 ): Promise<void> {
   try {
-    const result = await MetricsService.getTeamBusFactor(req.user!.uid, param(req, 'teamUid'));
+    // Bus Factor работает в фиксированном окне `сейчас - windowDays` (90 по
+    // умолчанию, как в CLAUDE.md / концепции CherryGit). Параметр оставлен
+    // настраиваемым для отладки и потенциальных дашбордов «за 30 дней».
+    const windowDays = parseWindowDays(queryString(req, 'windowDays'));
+    const result = await MetricsService.getTeamBusFactor(
+      req.user!.uid,
+      param(req, 'teamUid'),
+      windowDays
+    );
     sendResponse(res, HttpStatus.OK, result);
   } catch (error) {
     next(error);
