@@ -1,4 +1,4 @@
-import { jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { jsonb, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
 
 import type { AnomalySeverity } from './types/anomaly-severity.type';
 import type { AnomalySignalType } from './types/anomaly-signal-type.type';
@@ -281,18 +281,38 @@ export type MetricValue =
  *   entityType='team'    → доступен LEAD и выше
  *   entityType='project' → доступен MANAGER
  */
-export const metricsSnapshots = pgTable('metrics_snapshots', {
-  ...baseSchema,
-  metricType: text('metric_type').$type<MetricType>().notNull(),
-  entityType: text('entity_type').$type<EntityType>().notNull(),
-  /** UUID сущности: project.uid | team.uid | user.uid */
-  entityId: uuid('entity_id').notNull(),
-  periodStart: timestamp('period_start').notNull(),
-  periodEnd: timestamp('period_end').notNull(),
-  /** Рассчитанное значение; структура зависит от metricType (см. типы выше) */
-  value: jsonb('value').$type<MetricValue>().notNull(),
-  calculatedAt: timestamp('calculated_at').notNull()
-});
+export const metricsSnapshots = pgTable(
+  'metrics_snapshots',
+  {
+    ...baseSchema,
+    metricType: text('metric_type').$type<MetricType>().notNull(),
+    entityType: text('entity_type').$type<EntityType>().notNull(),
+    /** UUID сущности: project.uid | team.uid | user.uid */
+    entityId: uuid('entity_id').notNull(),
+    periodStart: timestamp('period_start').notNull(),
+    periodEnd: timestamp('period_end').notNull(),
+    /** Рассчитанное значение; структура зависит от metricType (см. типы выше) */
+    value: jsonb('value').$type<MetricValue>().notNull(),
+    calculatedAt: timestamp('calculated_at').notNull()
+  },
+  (t) => ({
+    /**
+     * Бизнес-ключ снепшота (доработка 2.7).
+     * `(metricType, entityType, entityId, periodStart, periodEnd)` идентифицирует
+     * единственный снепшот для конкретной метрики, сущности и окна периода.
+     * Используется в `snapshot.service.ts` для `ON CONFLICT DO UPDATE` —
+     * повторный sync-tick в том же периоде заменяет `value` и `calculatedAt`,
+     * не плодит дубликаты.
+     */
+    uniqueSnapshot: unique('uq_snapshot_per_period').on(
+      t.metricType,
+      t.entityType,
+      t.entityId,
+      t.periodStart,
+      t.periodEnd
+    )
+  })
+);
 
 export type InsertMetricSnapshot = typeof metricsSnapshots.$inferInsert;
 export type SelectMetricSnapshot = typeof metricsSnapshots.$inferSelect;

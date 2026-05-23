@@ -27,6 +27,7 @@ import { decryptSecret } from '@/lib/encryption';
 import { logger } from '@/lib/loger';
 import { recordAuditLog } from '@/modules/audit/audit.service';
 import { GitlabClient } from '@/modules/gitlab/gitlab-client.service';
+import * as SnapshotService from '@/modules/snapshots/snapshot.service';
 import { CustomError } from '@/utils/custom_error';
 import { HttpStatus } from '@/utils/enums/http-status';
 
@@ -196,6 +197,16 @@ export const syncProject = async (
       details: { ...report }
     });
 
+    // Snapshot writer (доработка 2.7) — fire-and-forget. Пересчитываем
+    // снепшоты только команд, связанных с этим проектом. Ошибка writer'а
+    // НЕ ломает sync-operation: snapshot — производный артефакт, его
+    // отсутствие в этом tick'е лечится следующим успешным tick'ом.
+    void SnapshotService.writeSnapshotsForProjectTeams(projectUid).catch((err: Error) => {
+      logger.warn(
+        `snapshot.writeForProjectTeams skipped for project ${projectUid}: ${err.message}`
+      );
+    });
+
     return report;
   } catch (error) {
     const message = (error as Error).message || String(error);
@@ -260,16 +271,40 @@ export const getSyncStatus = async (projectUid: string) => {
 
 /**
  * Пересчёт метрик без обращения к GitLab (доработка 2.7).
- * Сейчас заглушка — будет реализован в snapshot-writer.
+ *
+ * Делегирует в `SnapshotService.writeSnapshotsForProjectTeams` — для всех
+ * команд, связанных с проектом, пересчитывает snapshots по 6 MVP-метрикам
+ * (CT MR, MR Size, Lead Time, DF, CFR, Bus Factor) и апсёртит в БД.
+ *
+ * Используется когда:
+ *   — админ изменил `code_modules` (Bus Factor поменялся);
+ *   — админ поменял `hotfixLabels` после resync (CFR поменялся);
+ *   — нужна ручная перепроверка метрик без полного GitLab-sync.
+ *
+ * НЕ обращается к GitLab — работает по уже собранным `merge_requests`/
+ * `deployments`/`commits`. Поэтому быстрее полного `syncProject`.
  */
 export const recalculateMetrics = async (
-  _actorUid: string,
-  _projectUid: string
-): Promise<void> => {
-  throw new CustomError(
-    HttpStatus.NOT_IMPLEMENTED,
-    'recalculateMetrics будет реализован в доработке 2.7'
-  );
+  actorUid: string,
+  projectUid: string
+): Promise<{ projectUid: string; report: Awaited<ReturnType<typeof SnapshotService.writeSnapshotsForProjectTeams>> }> => {
+  // assertProjectExists через loadProject — даёт 404 при отсутствии.
+  const project = await loadProject(projectUid);
+  const report = await SnapshotService.writeSnapshotsForProjectTeams(project.uid, new Date());
+
+  await recordAuditLog({
+    userUid: actorUid,
+    action: 'metrics.recalculated',
+    entityType: 'project',
+    entityId: projectUid,
+    details: {
+      ok: report.ok,
+      failed: report.failed,
+      total: report.total
+    }
+  });
+
+  return { projectUid, report };
 };
 
 // ===========================================================================

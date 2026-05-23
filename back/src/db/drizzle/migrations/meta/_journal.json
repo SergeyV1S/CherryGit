@@ -15,6 +15,13 @@
       "when": 1779482222377,
       "tag": "0001_fresh_carlie_cooper",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779525227825,
+      "tag": "0002_lucky_fenris",
+      "breakpoints": true
     }
   ]
 }
