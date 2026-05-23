@@ -86,9 +86,8 @@ export class DeploymentFrequencyCalculator extends MetricCalculator {
     // Сортировка по строковому ключу работает корректно, потому что все
     // форматы (`YYYY-MM-DD`, `YYYY-MM`) лексикографически совпадают с
     // хронологическим порядком.
-    const timeline = bucketCounts
-      .entries()
-      .toSorted(([a], [b]) => a.localeCompare(b))
+    const timeline = [...bucketCounts.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
       .map(([bucket, c]) => ({ bucket, count: c }));
 
     return {

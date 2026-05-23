@@ -84,11 +84,9 @@ export class BusFactorCalculator extends MetricCalculator {
       }
     }
 
-    const moduleEntries = moduleAuthors
-      .entries()
-      .toSorted(([a], [b]) => a.localeCompare(b))
+    const moduleEntries = [...moduleAuthors.entries()].sort(([a], [b]) => a.localeCompare(b))
       .map(([name, authorsSet]) => {
-        const authors = authorsSet.toSorted();
+        const authors = [...authorsSet].sort();
         const activeContributors = authors.length;
         return {
           name,
