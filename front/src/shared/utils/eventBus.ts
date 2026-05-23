@@ -38,8 +38,4 @@ class EventBus {
   }
 }
 
-const bus = new EventBus();
-
-// const useConsumer = (event: keyof Events) => {
-//   return bus.$on;
-// };
+export const bus = new EventBus();

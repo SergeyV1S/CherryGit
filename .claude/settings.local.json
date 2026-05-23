@@ -20,10 +20,12 @@
       "Bash(echo \"EXIT=$?\")",
       "Bash(npm run *)",
       "Bash(npx ts-node *)",
-      "Bash(yarn typecheck *)",
+      "Bash(npm run typecheck *)",
       "PowerShell(Set-Location back; npx tsc --noEmit; Write-Host \"exit=$LASTEXITCODE\")",
-      "Bash(yarn tsc *)",
-      "Bash(yarn add *)"
+      "Bash(npm run tsc *)",
+      "Bash(npm run generate *)",
+      "Bash(npm install *)",
+      "Bash(npx vite *)"
     ]
   }
 }
