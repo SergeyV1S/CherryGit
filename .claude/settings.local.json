@@ -21,7 +21,8 @@
       "Bash(npm run *)",
       "Bash(npx ts-node *)",
       "Bash(yarn typecheck *)",
-      "PowerShell(Set-Location back; npx tsc --noEmit; Write-Host \"exit=$LASTEXITCODE\")"
+      "PowerShell(Set-Location back; npx tsc --noEmit; Write-Host \"exit=$LASTEXITCODE\")",
+      "Bash(yarn tsc *)"
     ]
   }
 }
