@@ -56,6 +56,31 @@ export class GitlabClient {
     return this.requestJson<GitlabUser>('GET', '/user');
   }
 
+  /**
+   * Найти пользователя GitLab по username (для UC-03: связать CherryGit-юзера
+   * с GitLab-аккаунтом).
+   *
+   * Использует `GET /users?username=<u>` — публичный endpoint, доступен любому
+   * с валидным PAT-токеном (даже не-админу инстанса GitLab). Возвращает массив
+   * (для username с учётом регистра — 0 или 1 элемент).
+   *
+   * Возвращает `null`, если пользователь не найден (UI должен показать «такого
+   * username нет на этом GitLab-инстансе» вместо 500-ки).
+   *
+   * Документация: https://docs.gitlab.com/api/users/#for-non-administrator-users
+   */
+  async fetchUserByUsername(username: string): Promise<GitlabUser | null> {
+    const trimmed = username.trim();
+    if (trimmed.length === 0) return null;
+    const users = await this.paginate<GitlabUser>('/users', { username: trimmed });
+    // GitLab username — регистронечувствительный при поиске, поэтому фильтруем
+    // строго по lower-case match, чтобы вернуть только точное совпадение.
+    const exact = users.find(
+      (u) => u.username.toLowerCase() === trimmed.toLowerCase()
+    );
+    return exact ?? null;
+  }
+
   /** Список проектов, в которых состоит владелец токена. */
   async fetchProjects(): Promise<GitlabProject[]> {
     return this.paginate<GitlabProject>('/projects', { membership: 'true', simple: 'false' });
