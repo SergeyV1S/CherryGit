@@ -10,7 +10,6 @@ import type { RoleType } from '@/db/drizzle/schema/user/types/role.type';
 import { db } from '@/db/drizzle/connect';
 import { metricsSnapshots } from '@/db/drizzle/schema/metrics/schema';
 import { teamMembers, teamProjects, teams } from '@/db/drizzle/schema/teams/schema';
-import { users } from '@/db/drizzle/schema/user/schema';
 import { logger } from '@/lib/loger';
 import { HEAD_FORBIDDEN_METRICS } from '@/middleware/role-matrix';
 import { BusFactorCalculator } from '@/modules/metrics/calculators/bus-factor.calculator';
@@ -445,17 +444,14 @@ export const getSnapshotHistory = async (
 // ===========================================================================
 
 /**
- * Резолв роли актора (для применения `assertMetricAccessibleForRole`
- * в контроллере). Возвращает глобальную роль из users.role.
+ * Резолв роли актора — reexport из `metrics/lib/team-access.ts` для
+ * обратной совместимости. Snapshot.controller импортирует отсюда.
+ *
+ * Хелпер физически живёт в `metrics/lib/team-access.ts` (доработка 3.2),
+ * чтобы и metrics.service и snapshot.service могли его использовать без
+ * cross-import между этими модулями.
  */
-export const loadActorRole = async (actorUid: string): Promise<RoleType> => {
-  const [actor] = await db
-    .select({ role: users.role })
-    .from(users)
-    .where(eq(users.uid, actorUid));
-  if (!actor) throw new CustomError(HttpStatus.FORBIDDEN, 'actor not found');
-  return actor.role as RoleType;
-};
+export { loadActorRole } from '@/modules/metrics/lib/team-access';
 
 /**
  * Проверка, что user-actor — реально член team (для extra-safe чтения

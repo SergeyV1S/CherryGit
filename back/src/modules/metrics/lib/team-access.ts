@@ -48,6 +48,26 @@ export interface TeamAccessResult {
   accessMode: 'admin' | 'head' | 'lead' | 'member';
 }
 
+/**
+ * Загрузить глобальную роль actor'а по UID. Возвращает строго `RoleType`.
+ * Бросает 403 если actor не найден (защита от удалённого пользователя
+ * со старым JWT).
+ *
+ * Хелпер вынесен на уровень `metrics/lib`, чтобы и `metrics.service`,
+ * и `snapshot.service` (доработка 2.7), и контроллеры могли его использовать
+ * без cross-imports между этими модулями.
+ */
+export const loadActorRole = async (actorUid: string): Promise<RoleType> => {
+  const [actor] = await db
+    .select({ role: users.role })
+    .from(users)
+    .where(eq(users.uid, actorUid));
+  if (!actor) {
+    throw new CustomError(HttpStatus.FORBIDDEN, 'actor not found');
+  }
+  return actor.role as RoleType;
+};
+
 export const assertTeamAccess = async (
   actorUid: string,
   teamUid: string

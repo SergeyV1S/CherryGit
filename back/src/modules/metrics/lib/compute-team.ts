@@ -1,4 +1,4 @@
-import { and, count, eq, gte, inArray, lte, sql } from 'drizzle-orm';
+import { and, count, eq, gte, inArray, lte, or, sql, type SQL } from 'drizzle-orm';
 
 import type {
   BusFactorValue,
@@ -62,7 +62,47 @@ import {
  * Все функции возвращают только `value: <MetricValue>`, без обёртки
  * `TeamXxxReport` — обёртка добавляется на уровне `metrics.service.ts`
  * (там же лежат метаданные actor/team).
+ *
+ * Доработка 3.2 — `AuthorFilter`:
+ *   MR-метрики (`computeCycleTimeMr`, `computeMrSize`) поддерживают
+ *   опциональный фильтр по автору MR. Используется для personal-секции
+ *   `/api/me/metrics`: «мои MR'ы в этой команде». Без фильтра — командный
+ *   агрегат (baseline) — тот же контракт, что был.
  */
+
+/**
+ * Фильтр по автору MR (доработка 3.2 — для personal-метрик `/me/*`).
+ *
+ * Применяется как `WHERE authorUid IN userUid OR authorGitlabUsername IN [...]`:
+ *   — `userUid` — резолвленный CherryGit-юзер (через `user_gitlab_identities`);
+ *   — `gitlabUsernames` — все известные username'ы этого юзера на разных
+ *     GitLab-инстансах (один юзер — несколько identities).
+ *
+ * **Семантика «пустой фильтр»**: если в фильтре не указан ни userUid, ни
+ * gitlabUsernames, функция возвращает **пустую выборку** (а не «всё»).
+ * Это критично для безопасности: вызывающий код не может случайно слить
+ * чужие данные передав `{}` вместо валидного фильтра. Принцип fail-closed.
+ */
+export interface AuthorFilter {
+  userUid?: string;
+  gitlabUsernames?: string[];
+}
+
+/**
+ * Построить SQL-условие по AuthorFilter для таблицы `merge_requests`.
+ * Возвращает `null` если фильтр пуст — вызывающая функция должна вернуть
+ * пустую выборку (fail-closed).
+ */
+const buildAuthorCondition = (filter: AuthorFilter | undefined): SQL | null => {
+  if (!filter) return null; // фильтра нет → без фильтра по автору (командный baseline)
+  const conditions: SQL[] = [];
+  if (filter.userUid) conditions.push(eq(mergeRequests.authorUid, filter.userUid));
+  if (filter.gitlabUsernames && filter.gitlabUsernames.length > 0) {
+    conditions.push(inArray(mergeRequests.authorGitlabUsername, filter.gitlabUsernames));
+  }
+  if (conditions.length === 0) return null;
+  return conditions.length === 1 ? conditions[0] : or(...conditions)!;
+};
 
 // ===========================================================================
 // 2.1 Cycle Time MR
@@ -71,10 +111,26 @@ import {
 export const computeCycleTimeMr = async (
   projectUids: string[],
   periodStart: Date,
-  periodEnd: Date
+  periodEnd: Date,
+  options?: { authorFilter?: AuthorFilter }
 ): Promise<CycleTimeMrValue> => {
   const calculator = new CycleTimeMrCalculator();
   if (projectUids.length === 0) return calculator.compute([]);
+
+  // Fail-closed: если передан пустой authorFilter (без userUid и без
+  // gitlabUsernames) — возвращаем пустую выборку. Иначе вызывающий код
+  // мог бы получить ЧУЖИЕ данные, передав `{}` (ВКР: индивидуальные
+  // данные другого пользователя → 403 на уровне middleware, доп. защита
+  // на уровне сервиса).
+  const authorCond = options?.authorFilter ? buildAuthorCondition(options.authorFilter) : null;
+  if (options?.authorFilter && !authorCond) return calculator.compute([]);
+
+  const whereConds: SQL[] = [
+    inArray(mergeRequests.projectUid, projectUids),
+    gte(mergeRequests.mergedAt, periodStart),
+    lte(mergeRequests.mergedAt, periodEnd)
+  ];
+  if (authorCond) whereConds.push(authorCond);
 
   const rows = await db
     .select({
@@ -85,13 +141,7 @@ export const computeCycleTimeMr = async (
       mergedAt: mergeRequests.mergedAt
     })
     .from(mergeRequests)
-    .where(
-      and(
-        inArray(mergeRequests.projectUid, projectUids),
-        gte(mergeRequests.mergedAt, periodStart),
-        lte(mergeRequests.mergedAt, periodEnd)
-      )
-    );
+    .where(and(...whereConds));
 
   const input: CycleTimeMrInput[] = rows.map((r) => ({
     title: r.title,
@@ -110,10 +160,21 @@ export const computeCycleTimeMr = async (
 export const computeMrSize = async (
   projectUids: string[],
   periodStart: Date,
-  periodEnd: Date
+  periodEnd: Date,
+  options?: { authorFilter?: AuthorFilter }
 ): Promise<MrSizeValue> => {
   const calculator = new MrSizeCalculator();
   if (projectUids.length === 0) return calculator.compute([]);
+
+  const authorCond = options?.authorFilter ? buildAuthorCondition(options.authorFilter) : null;
+  if (options?.authorFilter && !authorCond) return calculator.compute([]);
+
+  const whereConds: SQL[] = [
+    inArray(mergeRequests.projectUid, projectUids),
+    gte(mergeRequests.mergedAt, periodStart),
+    lte(mergeRequests.mergedAt, periodEnd)
+  ];
+  if (authorCond) whereConds.push(authorCond);
 
   const rows = await db
     .select({
@@ -122,13 +183,7 @@ export const computeMrSize = async (
       linesRemoved: mergeRequests.linesRemoved
     })
     .from(mergeRequests)
-    .where(
-      and(
-        inArray(mergeRequests.projectUid, projectUids),
-        gte(mergeRequests.mergedAt, periodStart),
-        lte(mergeRequests.mergedAt, periodEnd)
-      )
-    );
+    .where(and(...whereConds));
 
   const input: MrSizeInput[] = rows.map((r) => ({
     title: r.title,

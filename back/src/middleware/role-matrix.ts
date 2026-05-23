@@ -90,3 +90,43 @@ export const HEAD_FORBIDDEN_METRICS: ReadonlySet<MetricType> = new Set(
     .filter(([, roles]) => !roles.includes('HEAD'))
     .map(([metric]) => metric as MetricType)
 );
+
+// ===========================================================================
+// Per-accessMode фильтр для сводных эндпоинтов (доработка 3.2)
+// ===========================================================================
+
+/**
+ * Способ доступа actor'а к команде (зеркало `TeamAccessResult.accessMode`).
+ * Дублируется здесь как тип, чтобы `role-matrix.ts` не зависел от
+ * `metrics/lib/team-access.ts` (тот зависит от db).
+ */
+export type TeamAccessMode = 'admin' | 'head' | 'lead' | 'member';
+
+/**
+ * Проверка, можно ли показать метрику в сводном эндпоинте `/metrics`.
+ *
+ * Логика отличается от `canRoleAccessMetric` (которая смотрит только на
+ * глобальную роль) — здесь учитывается accessMode:
+ *
+ *   accessMode='admin'   → все 6 метрик (отладка/аудит);
+ *   accessMode='lead'    → все 6 метрик (полный обзор своей команды);
+ *   accessMode='head'    → DORA + Bus Factor; review-метрики (CT MR/MR Size)
+ *                          скрыты (раскрывают паттерны давления тимлида);
+ *   accessMode='member'  → ВСЕ 6 метрик командного baseline (FR-07
+ *                          «личные метрики + командный baseline»).
+ *                          Приватность не нарушается, потому что в bundle
+ *                          возвращаются только АГРЕГАТЫ — индивидуальные
+ *                          значения чужих участников не раскрываются.
+ *
+ * Это правило применяется в `getTeamMetrics` (bundle-endpoint). Для отдельных
+ * эндпоинтов (`/cycle-time-mr`, `/lead-time`, ...) применяется
+ * `requireRole(...)` — там DEVELOPER не пройдёт, ему доступен только bundle.
+ */
+export const canViewTeamMetric = (
+  accessMode: TeamAccessMode,
+  metricType: MetricType
+): boolean => {
+  if (accessMode === 'admin' || accessMode === 'lead' || accessMode === 'member') return true;
+  // accessMode === 'head'
+  return !HEAD_FORBIDDEN_METRICS.has(metricType);
+};

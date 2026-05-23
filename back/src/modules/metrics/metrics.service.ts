@@ -9,6 +9,7 @@ import type {
 } from '@/db/drizzle/schema/metrics/schema';
 
 import { notImplemented } from '@/lib/not-implemented';
+import { canViewTeamMetric } from '@/middleware/role-matrix';
 
 import { BusFactorCalculator } from './calculators/bus-factor.calculator';
 import {
@@ -19,7 +20,10 @@ import {
   computeLeadTime,
   computeMrSize
 } from './lib/compute-team';
-import { assertTeamAccess } from './lib/team-access';
+import {
+  assertTeamAccess,
+  type TeamAccessResult
+} from './lib/team-access';
 
 /**
  * Сервис получения рассчитанных метрик команды (ВКР 2.2.3, FR-07).
@@ -40,18 +44,122 @@ import { assertTeamAccess } from './lib/team-access';
  */
 
 // ===========================================================================
-// Сводные метрики (заглушка — этот эндпоинт собирает шесть метрик в один
-// ответ, удобно для дашборда тимлида одним запросом). Реализация —
-// в snapshot-эндпоинтах (доработка 2.7): фронт дёргает /snapshots/latest.
+// Сводные метрики (доработка 3.2 — реализация).
+//
+// Собирает в один ответ все доступные роли actor'а метрики команды
+// (CT MR, MR Size, Lead Time, DF, CFR, Bus Factor). Per-metric фильтр
+// по `canRoleAccessMetric` (matrix из 3.1) — недоступные метрики
+// возвращаются как `null`, чтобы UI знал «эта метрика существует, но
+// тебе её нельзя».
+//
+// Использование:
+//   — DEVELOPER-member своей команды → все 6 метрик (агрегаты, baseline);
+//   — LEAD команды → все 6 (полный обзор);
+//   — HEAD отдела → 4 DORA + Bus Factor (review-метрики null'нутся);
+//   — ADMIN → все 6 (отладка).
+//
+// Все метрики считаются за ОДНО окно `[periodStart, periodEnd]` — это
+// единая «срезка» команды на момент запроса (удобно для одностраничного
+// дашборда). Для Bus Factor `windowDays = (periodEnd - periodStart) / day`,
+// с защитой от выхода за рамки [1, 365].
+//
+// Парная визуализация (FR-06) на фронте: DF и CFR в этом ответе уже
+// рядом, фронт рисует их парно без дополнительных запросов.
 // ===========================================================================
 
+export interface TeamMetricsBundle {
+  metricType: 'bundle';
+  periodStart: Date;
+  periodEnd: Date;
+  teamUid: string;
+  projectUids: string[];
+  /**
+   * Способ доступа actor'а к команде (см. `team-access.ts`).
+   * Прозрачно для фронта — UI может показать индикатор «вы member»
+   * vs «вы лид» в верхней части дашборда.
+   */
+  accessMode: TeamAccessResult['accessMode'];
+  /**
+   * Per-metric ключи: либо `value`, либо `null` (роль не имеет доступа).
+   * `null` — НЕ означает «нет данных»; это «у тебя нет права смотреть».
+   * Различие критично для UI: на `null` показать сообщение «недоступно для
+   * вашей роли», на пустой value (sampleSize=0) — «нет данных за период».
+   */
+  metrics: {
+    cycle_time_mr: Awaited<ReturnType<typeof computeCycleTimeMr>> | null;
+    mr_size: Awaited<ReturnType<typeof computeMrSize>> | null;
+    lead_time: Awaited<ReturnType<typeof computeLeadTime>> | null;
+    deployment_frequency: Awaited<ReturnType<typeof computeDeploymentFrequency>> | null;
+    change_failure_rate: Awaited<ReturnType<typeof computeChangeFailureRate>> | null;
+    bus_factor: Awaited<ReturnType<typeof computeBusFactor>> | null;
+  };
+}
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
 export const getTeamMetrics = async (
-  _actorUid: string,
-  _teamUid: string,
-  _periodStart: Date,
-  _periodEnd: Date
-) => {
-  notImplemented('metrics.getTeamMetrics');
+  actorUid: string,
+  teamUid: string,
+  periodStart: Date,
+  periodEnd: Date
+): Promise<TeamMetricsBundle> => {
+  if (periodEnd < periodStart) throw new Error('periodEnd must be ≥ periodStart');
+
+  const { projectUids, accessMode } = await assertTeamAccess(actorUid, teamUid);
+
+  // Bus Factor windowDays — производное от запрошенного периода.
+  // Min 1 day (защита от деления на ноль), max 365 (потолок BusFactor).
+  const periodDays = Math.max(
+    1,
+    Math.min(365, Math.round((periodEnd.getTime() - periodStart.getTime()) / MS_PER_DAY))
+  );
+
+  // Параллельный compute. Те метрики, к которым роль не имеет доступа,
+  // пропускаются — Promise.resolve(null). Это экономит SQL: HEAD не делает
+  // лишних SELECT'ов по cycle_time_mr и mr_size.
+  //
+  // Используем `canViewTeamMetric(accessMode, ...)` (не `canRoleAccessMetric`):
+  // accessMode уже учитывает per-team scope, и DEVELOPER-member получает
+  // ВСЕ 6 метрик командного baseline (FR-07). Эта семантика отличается от
+  // отдельных эндпоинтов `/cycle-time-mr` (там requireRole='LEAD,ADMIN'
+  // отбрасывает DEV глобально) — bundle более либеральный к member'ам.
+  const [ct, sz, lt, df, cfr, bf] = await Promise.all([
+    canViewTeamMetric(accessMode, 'cycle_time_mr')
+      ? computeCycleTimeMr(projectUids, periodStart, periodEnd)
+      : Promise.resolve(null),
+    canViewTeamMetric(accessMode, 'mr_size')
+      ? computeMrSize(projectUids, periodStart, periodEnd)
+      : Promise.resolve(null),
+    canViewTeamMetric(accessMode, 'lead_time')
+      ? computeLeadTime(projectUids, periodStart, periodEnd)
+      : Promise.resolve(null),
+    canViewTeamMetric(accessMode, 'deployment_frequency')
+      ? computeDeploymentFrequency(projectUids, periodStart, periodEnd, 'week')
+      : Promise.resolve(null),
+    canViewTeamMetric(accessMode, 'change_failure_rate')
+      ? computeChangeFailureRate(projectUids, periodStart, periodEnd, 'week')
+      : Promise.resolve(null),
+    canViewTeamMetric(accessMode, 'bus_factor')
+      ? computeBusFactor(projectUids, periodStart, periodEnd, periodDays)
+      : Promise.resolve(null)
+  ]);
+
+  return {
+    metricType: 'bundle',
+    teamUid,
+    periodStart,
+    periodEnd,
+    projectUids,
+    accessMode,
+    metrics: {
+      cycle_time_mr: ct,
+      mr_size: sz,
+      lead_time: lt,
+      deployment_frequency: df,
+      change_failure_rate: cfr,
+      bus_factor: bf
+    }
+  };
 };
 
 // ===========================================================================
