@@ -2,6 +2,7 @@ import { Router } from 'express';
 
 import { isAuthenticated } from '@/middleware/auth.middleware';
 import { requireRole } from '@/middleware/role.middleware';
+import * as ExportController from '@/modules/export/export.controller';
 
 import * as AuditController from './audit.controller';
 
@@ -32,6 +33,10 @@ router.use(isAuthenticated, requireRole('ADMIN'));
 router.get('/actions', AuditController.listKnownActions);
 router.get('/entity-types', AuditController.listKnownEntityTypes);
 router.get('/stats', AuditController.getStats);
+
+// CSV-экспорт audit-логов (доработка 6) — те же фильтры что у `/`,
+// без пагинации, hard-cap 100k строк. Под admin (router-level requireRole).
+router.get('/export', ExportController.exportAuditLogs);
 
 // История конкретной сущности (для UI «вкладка История» в карточке).
 router.get('/entity/:entityType/:entityId', AuditController.listAuditLogsForEntity);
