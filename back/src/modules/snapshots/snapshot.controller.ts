@@ -122,11 +122,7 @@ export async function recalculateTeamSnapshots(
 ): Promise<void> {
   try {
     const teamUid = param(req, 'teamUid');
-    const report = await SnapshotService.writeSnapshotsForTeam(
-      teamUid,
-      new Date(),
-      req.user!.uid
-    );
+    const report = await SnapshotService.writeSnapshotsForTeam(teamUid, new Date(), req.user!.uid);
     sendResponse(res, HttpStatus.OK, report);
   } catch (error) {
     next(error);

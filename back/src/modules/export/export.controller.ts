@@ -2,7 +2,6 @@ import type { NextFunction, Request, Response } from 'express';
 
 import { HttpStatus } from '@/utils/enums/http-status';
 
-import * as ExportService from './export.service';
 import {
   auditExportQuerySchema,
   departmentDoraQuerySchema,
@@ -10,6 +9,7 @@ import {
   periodExportQuerySchema,
   teamParamsSchema
 } from './dto/export.dto';
+import * as ExportService from './export.service';
 
 /**
  * Контроллеры экспорта CSV (доработка 6).
@@ -36,10 +36,7 @@ const sendCsv = (
   result: { csv: Buffer; filename: string; rowCount: number }
 ): void => {
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-  res.setHeader(
-    'Content-Disposition',
-    `attachment; filename="${result.filename}"`
-  );
+  res.setHeader('Content-Disposition', `attachment; filename="${result.filename}"`);
   res.setHeader('X-Row-Count', String(result.rowCount));
   res.status(HttpStatus.OK).send(result.csv);
 };
@@ -54,11 +51,7 @@ export async function exportTeamMetrics(
   try {
     const params = teamParamsSchema.parse(req.params);
     const query = periodExportQuerySchema.parse(req.query);
-    const result = await ExportService.exportTeamMetrics(
-      req.user!.uid,
-      params.teamUid,
-      query
-    );
+    const result = await ExportService.exportTeamMetrics(req.user!.uid, params.teamUid, query);
     sendCsv(res, result);
   } catch (error) {
     next(error);

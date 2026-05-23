@@ -90,10 +90,7 @@ export const syncProject = async (
   const status = await loadOrCreateSyncStatus(projectUid);
 
   if (status.status === 'syncing') {
-    throw new CustomError(
-      HttpStatus.CONFLICT,
-      `Sync for project ${projectUid} is already running`
-    );
+    throw new CustomError(HttpStatus.CONFLICT, `Sync for project ${projectUid} is already running`);
   }
 
   // Захват мягкого лока. Гонка между двумя одновременными вызовами разрешится
@@ -260,10 +257,7 @@ export const syncAllProjects = async (): Promise<{ total: number; ok: number; fa
 
 /** Текущее состояние sync для проекта (используется UI и контроллером). */
 export const getSyncStatus = async (projectUid: string) => {
-  const [row] = await db
-    .select()
-    .from(syncStatuses)
-    .where(eq(syncStatuses.projectUid, projectUid));
+  const [row] = await db.select().from(syncStatuses).where(eq(syncStatuses.projectUid, projectUid));
   if (!row) {
     throw new CustomError(HttpStatus.NOT_FOUND, 'Sync status not found for project');
   }
@@ -288,7 +282,10 @@ export const getSyncStatus = async (projectUid: string) => {
 export const recalculateMetrics = async (
   actorUid: string,
   projectUid: string
-): Promise<{ projectUid: string; report: Awaited<ReturnType<typeof SnapshotService.writeSnapshotsForProjectTeams>> }> => {
+): Promise<{
+  projectUid: string;
+  report: Awaited<ReturnType<typeof SnapshotService.writeSnapshotsForProjectTeams>>;
+}> => {
   // assertProjectExists через loadProject — даёт 404 при отсутствии.
   const project = await loadProject(projectUid);
   const report = await SnapshotService.writeSnapshotsForProjectTeams(project.uid, new Date());
@@ -421,9 +418,7 @@ const resolveCommitAuthorsByEmail = async (
   connectionUid: string,
   emails: string[]
 ): Promise<Map<string, string>> => {
-  const unique = [...new Set(emails.map((e) => e.toLowerCase()))].filter(
-    (e) => e.length > 0
-  );
+  const unique = [...new Set(emails.map((e) => e.toLowerCase()))].filter((e) => e.length > 0);
   if (unique.length === 0) return new Map();
 
   const result = new Map<string, string>();
@@ -459,9 +454,7 @@ const resolveCommitAuthorsByEmail = async (
   // Подгружаем все users.mail. Для CherryGit-MVP (десятки-сотни юзеров) —
   // приемлемо. При росте — заменить на inArray(lower(mail), unresolved)
   // (потребует `lower()` индекс).
-  const userRows = await db
-    .select({ uid: users.uid, mail: users.mail })
-    .from(users);
+  const userRows = await db.select({ uid: users.uid, mail: users.mail }).from(users);
   for (const u of userRows) {
     const lower = u.mail.toLowerCase();
     if (stillUnresolved.includes(lower) && !result.has(lower)) {
@@ -552,9 +545,7 @@ const upsertMergeRequest = async (
     client.fetchMergeRequestNotes(project.gitlabProjectId, remote.iid),
     client.fetchMergeRequestApprovals(project.gitlabProjectId, remote.iid),
     // Changes может вернуть 404 на очень старых MR без diff — оборачиваем.
-    client
-      .fetchMergeRequestChanges(project.gitlabProjectId, remote.iid)
-      .catch(() => [])
+    client.fetchMergeRequestChanges(project.gitlabProjectId, remote.iid).catch(() => [])
   ]);
 
   const firstReviewAt = computeFirstReviewAt(notes, remote.author.username);
@@ -619,10 +610,11 @@ const upsertMergeRequest = async (
     .returning({ uid: mergeRequests.uid });
 
   // mr_commits — связать с уже загруженными в БД commits через SHA.
-  await linkMrCommits(project.uid, row.uid, await client.fetchMergeRequestCommits(
-    project.gitlabProjectId,
-    remote.iid
-  ));
+  await linkMrCommits(
+    project.uid,
+    row.uid,
+    await client.fetchMergeRequestCommits(project.gitlabProjectId, remote.iid)
+  );
 
   return { uid: row.uid, notes };
 };

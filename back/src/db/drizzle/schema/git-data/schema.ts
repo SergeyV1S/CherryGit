@@ -1,4 +1,13 @@
-import { boolean, integer, jsonb, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  unique,
+  uuid
+} from 'drizzle-orm/pg-core';
 
 import type { MRState } from './types/mr-state.type';
 import type { ReviewState } from './types/review-state.type';

@@ -36,23 +36,11 @@ router.use(isAuthenticated);
 
 router.get('/metrics', MetricsController.getTeamMetrics);
 
-router.get(
-  '/mr-size',
-  requireRole('LEAD', 'ADMIN'),
-  MetricsController.getTeamMrSize
-);
+router.get('/mr-size', requireRole('LEAD', 'ADMIN'), MetricsController.getTeamMrSize);
 
-router.get(
-  '/cycle-time-mr',
-  requireRole('LEAD', 'ADMIN'),
-  MetricsController.getTeamCycleTimeMr
-);
+router.get('/cycle-time-mr', requireRole('LEAD', 'ADMIN'), MetricsController.getTeamCycleTimeMr);
 
-router.get(
-  '/lead-time',
-  requireRole('LEAD', 'HEAD', 'ADMIN'),
-  MetricsController.getTeamLeadTime
-);
+router.get('/lead-time', requireRole('LEAD', 'HEAD', 'ADMIN'), MetricsController.getTeamLeadTime);
 
 router.get(
   '/deployment-frequency',
@@ -66,17 +54,9 @@ router.get(
   MetricsController.getTeamChangeFailureRate
 );
 
-router.get(
-  '/bus-factor',
-  requireRole('LEAD', 'HEAD', 'ADMIN'),
-  MetricsController.getTeamBusFactor
-);
+router.get('/bus-factor', requireRole('LEAD', 'HEAD', 'ADMIN'), MetricsController.getTeamBusFactor);
 
-router.get(
-  '/anomalies',
-  requireRole('LEAD', 'ADMIN'),
-  MetricsController.getTeamAnomalies
-);
+router.get('/anomalies', requireRole('LEAD', 'ADMIN'), MetricsController.getTeamAnomalies);
 
 router.post(
   '/anomalies/:anomalyUid/dismiss',

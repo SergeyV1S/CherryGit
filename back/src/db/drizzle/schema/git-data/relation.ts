@@ -67,16 +67,13 @@ export const deploymentsRelations = relations(deployments, ({ one, many }) => ({
   deploymentMergeRequests: many(deploymentMergeRequests)
 }));
 
-export const deploymentMergeRequestsRelations = relations(
-  deploymentMergeRequests,
-  ({ one }) => ({
-    deployment: one(deployments, {
-      fields: [deploymentMergeRequests.deploymentUid],
-      references: [deployments.uid]
-    }),
-    mergeRequest: one(mergeRequests, {
-      fields: [deploymentMergeRequests.mergeRequestUid],
-      references: [mergeRequests.uid]
-    })
+export const deploymentMergeRequestsRelations = relations(deploymentMergeRequests, ({ one }) => ({
+  deployment: one(deployments, {
+    fields: [deploymentMergeRequests.deploymentUid],
+    references: [deployments.uid]
+  }),
+  mergeRequest: one(mergeRequests, {
+    fields: [deploymentMergeRequests.mergeRequestUid],
+    references: [mergeRequests.uid]
   })
-);
+}));

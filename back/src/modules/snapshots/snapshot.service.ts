@@ -1,8 +1,6 @@
-import { and, asc, desc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, lte, sql } from 'drizzle-orm';
 
-import type {
-  MetricValue
-} from '@/db/drizzle/schema/metrics/schema';
+import type { MetricValue } from '@/db/drizzle/schema/metrics/schema';
 import type { EntityType } from '@/db/drizzle/schema/metrics/types/entity-type.type';
 import type { MetricType } from '@/db/drizzle/schema/metrics/types/metric-type.type';
 import type { RoleType } from '@/db/drizzle/schema/user/types/role.type';
@@ -12,6 +10,7 @@ import { metricsSnapshots } from '@/db/drizzle/schema/metrics/schema';
 import { teamMembers, teamProjects, teams } from '@/db/drizzle/schema/teams/schema';
 import { logger } from '@/lib/loger';
 import { HEAD_FORBIDDEN_METRICS } from '@/middleware/role-matrix';
+import { recordAuditLog } from '@/modules/audit/audit.service';
 import { BusFactorCalculator } from '@/modules/metrics/calculators/bus-factor.calculator';
 import {
   computeBusFactor,
@@ -21,7 +20,6 @@ import {
   computeLeadTime,
   computeMrSize
 } from '@/modules/metrics/lib/compute-team';
-import { recordAuditLog } from '@/modules/audit/audit.service';
 import { CustomError } from '@/utils/custom_error';
 import { HttpStatus } from '@/utils/enums/http-status';
 
@@ -127,13 +125,13 @@ const ALL_TEAM_METRICS: MetricType[] = [
 export interface SnapshotWriteEntry {
   metricType: MetricType;
   /** Результат записи: `ok` или сообщение ошибки. */
-  status: 'ok' | string;
+  status: string | 'ok';
 }
 
 export interface TeamSnapshotReport {
-  teamUid: string;
   calculatedAt: Date;
   entries: SnapshotWriteEntry[];
+  teamUid: string;
 }
 
 /**
@@ -194,9 +192,7 @@ export const writeSnapshotsForTeam = async (
       entries.push({ metricType, status: 'ok' });
     } catch (error) {
       const msg = (error as Error).message || String(error);
-      logger.warn(
-        `snapshot.write team=${teamUid} metric=${metricType} failed: ${msg}`
-      );
+      logger.warn(`snapshot.write team=${teamUid} metric=${metricType} failed: ${msg}`);
       entries.push({ metricType, status: msg });
     }
   }
@@ -218,10 +214,10 @@ export const writeSnapshotsForTeam = async (
 };
 
 export interface SnapshotBatchReport {
-  total: number;
-  ok: number;
   failed: number;
+  ok: number;
   teams: TeamSnapshotReport[];
+  total: number;
 }
 
 /**
@@ -272,9 +268,7 @@ const writeForTeams = async (
       else failed += 1;
     } catch (error) {
       failed += 1;
-      logger.warn(
-        `snapshot.writeForTeams team=${teamUid} failed: ${(error as Error).message}`
-      );
+      logger.warn(`snapshot.writeForTeams team=${teamUid} failed: ${(error as Error).message}`);
     }
   }
   return { total: teamUids.length, ok, failed, teams: reports };
@@ -305,21 +299,11 @@ const computeOne = async (
       return { value, periodStart: period30Start, periodEndForSnapshot: periodEnd };
     }
     case 'deployment_frequency': {
-      const value = await computeDeploymentFrequency(
-        projectUids,
-        period30Start,
-        periodEnd,
-        'week'
-      );
+      const value = await computeDeploymentFrequency(projectUids, period30Start, periodEnd, 'week');
       return { value, periodStart: period30Start, periodEndForSnapshot: periodEnd };
     }
     case 'change_failure_rate': {
-      const value = await computeChangeFailureRate(
-        projectUids,
-        period30Start,
-        periodEnd,
-        'week'
-      );
+      const value = await computeChangeFailureRate(projectUids, period30Start, periodEnd, 'week');
       return { value, periodStart: period30Start, periodEndForSnapshot: periodEnd };
     }
     case 'bus_factor': {
@@ -335,13 +319,13 @@ const computeOne = async (
 };
 
 interface UpsertSnapshotInput {
-  metricType: MetricType;
-  entityType: EntityType;
-  entityId: string;
-  periodStart: Date;
-  periodEnd: Date;
-  value: MetricValue;
   calculatedAt: Date;
+  entityId: string;
+  entityType: EntityType;
+  metricType: MetricType;
+  periodEnd: Date;
+  periodStart: Date;
+  value: MetricValue;
 }
 
 const upsertSnapshot = async (input: UpsertSnapshotInput): Promise<void> => {
@@ -418,7 +402,7 @@ export const getSnapshotHistory = async (
   from?: Date,
   to?: Date,
   limit = 1000
-): Promise<typeof metricsSnapshots.$inferSelect[]> => {
+): Promise<(typeof metricsSnapshots.$inferSelect)[]> => {
   const now = new Date();
   const effectiveTo = to ?? now;
   const effectiveFrom = from ?? new Date(effectiveTo.getTime() - 90 * MS_PER_DAY);

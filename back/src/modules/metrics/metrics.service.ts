@@ -11,6 +11,8 @@ import type {
 import { notImplemented } from '@/lib/not-implemented';
 import { canViewTeamMetric } from '@/middleware/role-matrix';
 
+import type { TeamAccessResult } from './lib/team-access';
+
 import { BusFactorCalculator } from './calculators/bus-factor.calculator';
 import {
   computeBusFactor,
@@ -20,10 +22,7 @@ import {
   computeLeadTime,
   computeMrSize
 } from './lib/compute-team';
-import {
-  assertTeamAccess,
-  type TeamAccessResult
-} from './lib/team-access';
+import { assertTeamAccess } from './lib/team-access';
 
 /**
  * Сервис получения рассчитанных метрик команды (ВКР 2.2.3, FR-07).
@@ -68,11 +67,6 @@ import {
 // ===========================================================================
 
 export interface TeamMetricsBundle {
-  metricType: 'bundle';
-  periodStart: Date;
-  periodEnd: Date;
-  teamUid: string;
-  projectUids: string[];
   /**
    * Способ доступа actor'а к команде (см. `team-access.ts`).
    * Прозрачно для фронта — UI может показать индикатор «вы member»
@@ -93,6 +87,11 @@ export interface TeamMetricsBundle {
     change_failure_rate: Awaited<ReturnType<typeof computeChangeFailureRate>> | null;
     bus_factor: Awaited<ReturnType<typeof computeBusFactor>> | null;
   };
+  metricType: 'bundle';
+  periodEnd: Date;
+  periodStart: Date;
+  projectUids: string[];
+  teamUid: string;
 }
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -168,10 +167,10 @@ export const getTeamMetrics = async (
 
 export interface TeamCycleTimeMrReport {
   metricType: 'cycle_time_mr';
-  periodStart: Date;
   periodEnd: Date;
-  teamUid: string;
+  periodStart: Date;
   projectUids: string[];
+  teamUid: string;
   value: CycleTimeMrValue;
 }
 
@@ -193,10 +192,10 @@ export const getTeamCycleTimeMr = async (
 
 export interface TeamMrSizeReport {
   metricType: 'mr_size';
-  periodStart: Date;
   periodEnd: Date;
-  teamUid: string;
+  periodStart: Date;
   projectUids: string[];
+  teamUid: string;
   value: MrSizeValue;
 }
 
@@ -218,10 +217,10 @@ export const getTeamMrSize = async (
 
 export interface TeamLeadTimeReport {
   metricType: 'lead_time';
-  periodStart: Date;
   periodEnd: Date;
-  teamUid: string;
+  periodStart: Date;
   projectUids: string[];
+  teamUid: string;
   value: LeadTimeValue;
 }
 
@@ -243,10 +242,10 @@ export const getTeamLeadTime = async (
 
 export interface TeamDeploymentFrequencyReport {
   metricType: 'deployment_frequency';
-  periodStart: Date;
   periodEnd: Date;
-  teamUid: string;
+  periodStart: Date;
   projectUids: string[];
+  teamUid: string;
   value: DeploymentFrequencyValue;
 }
 
@@ -276,10 +275,10 @@ export const getTeamDeploymentFrequency = async (
 
 export interface TeamChangeFailureRateReport {
   metricType: 'change_failure_rate';
-  periodStart: Date;
   periodEnd: Date;
-  teamUid: string;
+  periodStart: Date;
   projectUids: string[];
+  teamUid: string;
   value: ChangeFailureRateValue;
 }
 
@@ -309,13 +308,13 @@ export const getTeamChangeFailureRate = async (
 
 export interface TeamBusFactorReport {
   metricType: 'bus_factor';
+  projectUids: string[];
+  teamUid: string;
+  value: BusFactorValue;
   /** Конец окна. */
   windowEnd: Date;
   /** Начало окна (windowEnd − windowDays). */
   windowStart: Date;
-  teamUid: string;
-  projectUids: string[];
-  value: BusFactorValue;
 }
 
 export const getTeamBusFactor = async (
@@ -345,10 +344,6 @@ export const getTeamAnomalies = async (_actorUid: string, _teamUid: string) => {
   notImplemented('metrics.getTeamAnomalies');
 };
 
-export const dismissAnomaly = async (
-  _actorUid: string,
-  _teamUid: string,
-  _anomalyUid: string
-) => {
+export const dismissAnomaly = async (_actorUid: string, _teamUid: string, _anomalyUid: string) => {
   notImplemented('metrics.dismissAnomaly');
 };

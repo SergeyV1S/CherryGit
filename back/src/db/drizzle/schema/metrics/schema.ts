@@ -29,14 +29,14 @@ import { users } from '../user/schema';
  * формулой в раскрывающемся блоке (ВКР: «формула в UI»).
  */
 export interface LeadTimeValue {
-  medianSeconds: number | null;
-  p90Seconds: number | null;
-  /** Сколько пар (deployment, MR) попало в выборку. */
-  sampleSize: number;
   /** Сколько деплоев в окне периода рассмотрено (включая пустые). */
   deploymentsConsidered: number;
   /** Сколько MR пропущено из-за отсутствия mr_commits (см. ДОРАБОТКИ 2.3). */
   excludedMrsWithoutCommits: number;
+  medianSeconds: number | null;
+  p90Seconds: number | null;
+  /** Сколько пар (deployment, MR) попало в выборку. */
+  sampleSize: number;
 }
 
 /**
@@ -62,11 +62,11 @@ export type DeploymentFrequencyGranularity = 'day' | 'month' | 'week';
 export interface DeploymentFrequencyValue {
   category: DeploymentFrequencyCategory;
   count: number;
+  granularity: DeploymentFrequencyGranularity;
   /** Среднее число деплоев в день за период (для UI: «X.Y deploys/day»). */
   perDay: number;
   /** Дней в окне периода (для прозрачности расчёта; ≥1 ради защиты от /0). */
   periodDays: number;
-  granularity: DeploymentFrequencyGranularity;
   /**
    * Распределение по бакетам: ключ — ISO-дата начала бакета,
    * значение — число деплоев в бакет. Пустые бакеты НЕ дополняются
@@ -101,13 +101,6 @@ export interface DeploymentFrequencyValue {
 export type ChangeFailureRateCategory = 'elite' | 'high' | 'low' | 'medium';
 
 export interface ChangeFailureRateValue {
-  totalDeploys: number;
-  /** Деплои с isHotfix=true OR isRevert=true (дедуплицированы — один deploy = одна 1). */
-  failedDeploys: number;
-  /** Процент 0..100 (округлено до 2 знаков), null-safe (0 при totalDeploys=0). */
-  ratePercent: number;
-  /** Категория DORA; null если totalDeploys=0 (CFR не определён). */
-  category: ChangeFailureRateCategory | null;
   /**
    * Разбивка failed по типу метки. Сумма `hotfixDeploys + revertDeploys`
    * может быть БОЛЬШЕ `failedDeploys`, если один deploy одновременно
@@ -118,7 +111,13 @@ export interface ChangeFailureRateValue {
     hotfixDeploys: number;
     revertDeploys: number;
   };
+  /** Категория DORA; null если totalDeploys=0 (CFR не определён). */
+  category: ChangeFailureRateCategory | null;
+  /** Деплои с isHotfix=true OR isRevert=true (дедуплицированы — один deploy = одна 1). */
+  failedDeploys: number;
   granularity: DeploymentFrequencyGranularity;
+  /** Процент 0..100 (округлено до 2 знаков), null-safe (0 при totalDeploys=0). */
+  ratePercent: number;
   /**
    * Распределение по бакетам времени, парное с DF.timeline.
    * Пустые бакеты НЕ дополняются (UI решает, рисовать ли пропуски).
@@ -130,6 +129,7 @@ export interface ChangeFailureRateValue {
     /** Процент 0..100 в бакете; 0 при totalDeploys=0 в бакете. */
     ratePercent: number;
   }[];
+  totalDeploys: number;
 }
 
 /**
@@ -147,6 +147,8 @@ export interface ChangeFailureRateValue {
  *     меньше общей выборки, если у MR нет firstReviewAt/approvedAt).
  */
 export interface CycleTimeMrValue {
+  /** Сколько MR отфильтровано как draft/WIP по заголовку. */
+  excludedDrafts: number;
   /** Время от открытия MR до мержа (`mergedAt - gitlabCreatedAt`). */
   medianTotalSeconds: number | null;
   p90TotalSeconds: number | null;
@@ -162,8 +164,6 @@ export interface CycleTimeMrValue {
     timeToMergeAfterApprovalP90Seconds: number | null;
   };
   sampleSize: number;
-  /** Сколько MR отфильтровано как draft/WIP по заголовку. */
-  excludedDrafts: number;
   /** Не-null размеры выборок по фазам (MR без firstReview/approve → меньше). */
   sampleSizePerPhase: {
     timeToFirstReview: number;
@@ -195,13 +195,13 @@ export interface MrSizeValue {
     /** Доля бакета в выборке, 0..100, округлено до 2 знаков. 0 при пустой выборке. */
     percent: number;
   }[];
+  /** Сколько MR отфильтровано как draft/WIP по заголовку. */
+  excludedDrafts: number;
   /** Медиана суммы (linesAdded + linesRemoved) по MR в выборке. */
   medianLinesChanged: number | null;
   /** 90-й перцентиль той же выборки — показывает «хвост» крупных MR. */
   p90LinesChanged: number | null;
   sampleSize: number;
-  /** Сколько MR отфильтровано как draft/WIP по заголовку. */
-  excludedDrafts: number;
 }
 
 /**
@@ -230,16 +230,6 @@ export type BusFactorColor = 'green' | 'red' | 'yellow';
 
 export interface BusFactorValue {
   /**
-   * Минимум `activeContributors` по всем модулям с активностью.
-   * `null` означает «нет данных» — за окно не нашлось ни одного MR с filePaths
-   * (пустая выборка либо MR ещё не пере-засинхрены после доработки 2.6).
-   */
-  overallBusFactor: number | null;
-  /** Длина окна в днях (по умолчанию 90 — из CLAUDE.md / концепции). */
-  windowDays: number;
-  /** Сколько merged-MR попало в выборку (для UI tooltip «формула расчёта»). */
-  sampleSize: number;
-  /**
    * Сколько MR в выборке имеют пустой `filePaths`. Если велико — значит
    * MR засинхрены до доработки 2.6; админу нужен `POST /admin/projects/:uid/resync`
    * для пере-загрузки изменений.
@@ -257,6 +247,16 @@ export interface BusFactorValue {
     authors: string[];
     color: BusFactorColor;
   }[];
+  /**
+   * Минимум `activeContributors` по всем модулям с активностью.
+   * `null` означает «нет данных» — за окно не нашлось ни одного MR с filePaths
+   * (пустая выборка либо MR ещё не пере-засинхрены после доработки 2.6).
+   */
+  overallBusFactor: number | null;
+  /** Сколько merged-MR попало в выборку (для UI tooltip «формула расчёта»). */
+  sampleSize: number;
+  /** Длина окна в днях (по умолчанию 90 — из CLAUDE.md / концепции). */
+  windowDays: number;
 }
 
 export type MetricValue =

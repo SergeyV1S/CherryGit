@@ -26,11 +26,7 @@ export async function listProjects(
   }
 }
 
-export async function getProject(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+export async function getProject(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const result = await ProjectsService.getProject(param(req, 'uid'));
     sendResponse(res, HttpStatus.OK, result);
@@ -133,11 +129,7 @@ export async function createCodeModule(
 ): Promise<void> {
   try {
     const dto = createCodeModuleSchema.parse(req.body);
-    const result = await CodeModulesService.createCodeModule(
-      param(req, 'uid'),
-      dto,
-      req.user!.uid
-    );
+    const result = await CodeModulesService.createCodeModule(param(req, 'uid'), dto, req.user!.uid);
     sendResponse(res, HttpStatus.CREATED, result);
   } catch (error) {
     next(error);

@@ -46,11 +46,7 @@ export async function getCurrentUser(
   }
 }
 
-export async function getMyMetrics(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+export async function getMyMetrics(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { periodStart, periodEnd } = parsePeriod(req);
     const result = await MeService.getMyMetrics(req.user!.uid, periodStart, periodEnd);
@@ -66,7 +62,17 @@ export async function getMyMetricsHistory(
   next: NextFunction
 ): Promise<void> {
   try {
-    const result = await MeService.getMyMetricsHistory(req.user!.uid);
+    const toStr = queryString(req, 'to');
+    const fromStr = queryString(req, 'from');
+    const to = toStr ? new Date(toStr) : undefined;
+    const from = fromStr ? new Date(fromStr) : undefined;
+    if (to && Number.isNaN(to.getTime())) {
+      throw new CustomError(HttpStatus.BAD_REQUEST, 'to is not a valid ISO date');
+    }
+    if (from && Number.isNaN(from.getTime())) {
+      throw new CustomError(HttpStatus.BAD_REQUEST, 'from is not a valid ISO date');
+    }
+    const result = await MeService.getMyMetricsHistory(req.user!.uid, from, to);
     sendResponse(res, HttpStatus.OK, result);
   } catch (error) {
     next(error);

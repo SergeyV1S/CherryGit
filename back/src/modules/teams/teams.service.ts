@@ -66,7 +66,10 @@ const assertUserExists = async (userUid: string): Promise<void> => {
 };
 
 const assertProjectExists = async (projectUid: string): Promise<void> => {
-  const [p] = await db.select({ uid: projects.uid }).from(projects).where(eq(projects.uid, projectUid));
+  const [p] = await db
+    .select({ uid: projects.uid })
+    .from(projects)
+    .where(eq(projects.uid, projectUid));
   if (!p) throw new CustomError(HttpStatus.NOT_FOUND, 'Project not found');
 };
 
@@ -206,8 +209,8 @@ const loadDepartment = async (uid: string) => {
 // Admin CRUD teams
 // ===========================================================================
 
-export const listAllTeams = async () => {
-  return db
+export const listAllTeams = async () =>
+  db
     .select({
       uid: teams.uid,
       name: teams.name,
@@ -216,7 +219,6 @@ export const listAllTeams = async () => {
     })
     .from(teams)
     .orderBy(asc(teams.name));
-};
 
 /**
  * Создание команды. Опционально привязывает проекты в одной транзакции —
@@ -345,8 +347,8 @@ export const deleteTeam = async (actorUid: string, uid: string) => {
  * Список участников команды с базовыми полями user'а + per-team role.
  * Используется в `getTeam` (внутри `Promise.all`) и через прямой endpoint.
  */
-const listMembersByTeam = async (teamUid: string) => {
-  return db
+const listMembersByTeam = async (teamUid: string) =>
+  db
     .select({
       memberUid: teamMembers.uid,
       userUid: users.uid,
@@ -360,18 +362,13 @@ const listMembersByTeam = async (teamUid: string) => {
     .innerJoin(users, eq(users.uid, teamMembers.userUid))
     .where(eq(teamMembers.teamUid, teamUid))
     .orderBy(asc(teamMembers.joinedAt));
-};
 
 export const listMembers = async (teamUid: string) => {
   await assertTeamExists(teamUid);
   return listMembersByTeam(teamUid);
 };
 
-export const addMember = async (
-  actorUid: string,
-  teamUid: string,
-  dto: AddTeamMemberDto
-) => {
+export const addMember = async (actorUid: string, teamUid: string, dto: AddTeamMemberDto) => {
   await assertTeamExists(teamUid);
   await assertUserExists(dto.userUid);
 
@@ -388,10 +385,7 @@ export const addMember = async (
   } catch (error) {
     if (isUniqueViolation(error)) {
       // uq_member_per_team — уже состоит в команде. Соответствует «дубликат».
-      throw new CustomError(
-        HttpStatus.CONFLICT,
-        'пользователь уже состоит в этой команде'
-      );
+      throw new CustomError(HttpStatus.CONFLICT, 'пользователь уже состоит в этой команде');
     }
     throw error;
   }
@@ -456,11 +450,7 @@ export const updateMember = async (
   return updated;
 };
 
-export const removeMember = async (
-  actorUid: string,
-  teamUid: string,
-  memberUid: string
-) => {
+export const removeMember = async (actorUid: string, teamUid: string, memberUid: string) => {
   const [before] = await db
     .select()
     .from(teamMembers)
@@ -492,8 +482,8 @@ export const removeMember = async (
  * Список проектов, привязанных к команде. Используется в `getTeam` и
  * через прямой endpoint.
  */
-const listProjectsByTeam = async (teamUid: string) => {
-  return db
+const listProjectsByTeam = async (teamUid: string) =>
+  db
     .select({
       uid: projects.uid,
       name: projects.name,
@@ -504,18 +494,13 @@ const listProjectsByTeam = async (teamUid: string) => {
     .innerJoin(projects, eq(projects.uid, teamProjects.projectUid))
     .where(eq(teamProjects.teamUid, teamUid))
     .orderBy(asc(projects.name));
-};
 
 export const listTeamProjects = async (teamUid: string) => {
   await assertTeamExists(teamUid);
   return listProjectsByTeam(teamUid);
 };
 
-export const attachProject = async (
-  actorUid: string,
-  teamUid: string,
-  dto: AttachProjectDto
-) => {
+export const attachProject = async (actorUid: string, teamUid: string, dto: AttachProjectDto) => {
   await assertTeamExists(teamUid);
   await assertProjectExists(dto.projectUid);
 
@@ -523,10 +508,7 @@ export const attachProject = async (
     await db.insert(teamProjects).values({ teamUid, projectUid: dto.projectUid });
   } catch (error) {
     if (isUniqueViolation(error)) {
-      throw new CustomError(
-        HttpStatus.CONFLICT,
-        'проект уже привязан к этой команде'
-      );
+      throw new CustomError(HttpStatus.CONFLICT, 'проект уже привязан к этой команде');
     }
     throw error;
   }
@@ -543,16 +525,10 @@ export const attachProject = async (
   scheduleSnapshotRecalc(teamUid);
 };
 
-export const detachProject = async (
-  actorUid: string,
-  teamUid: string,
-  projectUid: string
-) => {
+export const detachProject = async (actorUid: string, teamUid: string, projectUid: string) => {
   const result = await db
     .delete(teamProjects)
-    .where(
-      and(eq(teamProjects.teamUid, teamUid), eq(teamProjects.projectUid, projectUid))
-    )
+    .where(and(eq(teamProjects.teamUid, teamUid), eq(teamProjects.projectUid, projectUid)))
     .returning();
   if (result.length === 0) {
     throw new CustomError(HttpStatus.NOT_FOUND, 'Project is not attached to this team');

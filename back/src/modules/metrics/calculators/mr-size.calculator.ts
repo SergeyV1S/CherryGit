@@ -118,7 +118,7 @@ export class MrSizeCalculator extends MetricCalculator {
 
 /** Минимальный срез строки `merge_requests`, нужный калькулятору. */
 export interface MrSizeInput {
-  title: string;
   linesAdded: number;
   linesRemoved: number;
+  title: string;
 }

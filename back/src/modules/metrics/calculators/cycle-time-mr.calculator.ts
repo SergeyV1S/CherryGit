@@ -105,17 +105,17 @@ export class CycleTimeMrCalculator extends MetricCalculator {
    * Сравнение case-insensitive, допускается опциональный пробел/двоеточие/дефис.
    */
   static isDraft(title: string): boolean {
-    return /^\s*(draft|wip)\b\s*[:\-]/i.test(title);
+    return /^\s*(?:draft|wip)\s*[:\-]/i.test(title);
   }
 }
 
 /** Минимальный срез строки `merge_requests`, нужный калькулятору. */
 export interface CycleTimeMrInput {
-  title: string;
-  gitlabCreatedAt: Date | null;
-  firstReviewAt: Date | null;
   approvedAt: Date | null;
+  firstReviewAt: Date | null;
+  gitlabCreatedAt: Date | null;
   mergedAt: Date | null;
+  title: string;
 }
 
 /** Разница в секундах. Возвращает целое число (округление вниз). */

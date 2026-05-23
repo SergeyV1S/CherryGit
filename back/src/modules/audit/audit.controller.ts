@@ -46,10 +46,7 @@ export async function listAuditLogsForEntity(
 ): Promise<void> {
   try {
     const params = entityHistoryParamsSchema.parse(req.params);
-    const result = await AuditService.listAuditLogsForEntity(
-      params.entityType,
-      params.entityId
-    );
+    const result = await AuditService.listAuditLogsForEntity(params.entityType, params.entityId);
     sendResponse(res, HttpStatus.OK, result);
   } catch (error) {
     next(error);
@@ -88,11 +85,7 @@ export async function listKnownEntityTypes(
  * Агрегированная статистика по журналу для admin-дашборда.
  * Query: `?from=2026-04-01&to=2026-05-23` (оба опциональны).
  */
-export async function getStats(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+export async function getStats(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { from, to } = statsQuerySchema.parse(req.query);
     const result = await AuditService.getAuditStats(from, to);

@@ -1,15 +1,12 @@
 import { hash } from 'bcrypt';
-import { randomBytes } from 'crypto';
-import { and, asc, desc, eq, ilike, ne, or, sql } from 'drizzle-orm';
+import { and, asc, eq, ilike, ne, or, sql } from 'drizzle-orm';
+import { randomBytes } from 'node:crypto';
 
 import type { RoleType } from '@/db/drizzle/schema/user/types/role.type';
 
 import { db } from '@/db/drizzle/connect';
 import { departments } from '@/db/drizzle/schema/departments/schema';
-import {
-  gitlabConnections,
-  userGitlabIdentities
-} from '@/db/drizzle/schema/gitlab/schema';
+import { gitlabConnections, userGitlabIdentities } from '@/db/drizzle/schema/gitlab/schema';
 import { teamMembers, teams } from '@/db/drizzle/schema/teams/schema';
 import { users } from '@/db/drizzle/schema/user/schema';
 import { decryptSecret } from '@/lib/encryption';
@@ -390,11 +387,7 @@ export const createUser = async (actorUid: string, dto: AdminCreateUserDto) => {
  * Патч профиля. НЕ позволяет менять role/password — для этого отдельные
  * endpoints. См. шапку файла, design choice #1.
  */
-export const updateUser = async (
-  actorUid: string,
-  uid: string,
-  dto: AdminUpdateUserDto
-) => {
+export const updateUser = async (actorUid: string, uid: string, dto: AdminUpdateUserDto) => {
   const before = await assertUserExists(uid);
 
   if (dto.departmentUid !== undefined && dto.departmentUid !== null) {
@@ -477,20 +470,14 @@ export const updateUser = async (
  */
 export const deleteUser = async (actorUid: string, uid: string) => {
   if (actorUid === uid) {
-    throw new CustomError(
-      HttpStatus.CONFLICT,
-      'нельзя удалить собственную учётную запись'
-    );
+    throw new CustomError(HttpStatus.CONFLICT, 'нельзя удалить собственную учётную запись');
   }
 
   const before = await assertUserExists(uid);
 
   // Защита от lockout'а: не оставлять систему без ADMIN'а.
   if (await isLastAdmin(uid)) {
-    throw new CustomError(
-      HttpStatus.CONFLICT,
-      'нельзя удалить последнего ADMIN-пользователя'
-    );
+    throw new CustomError(HttpStatus.CONFLICT, 'нельзя удалить последнего ADMIN-пользователя');
   }
 
   // Проверка наличия GitLab-подключений — блокируем удаление, чтобы не
@@ -553,11 +540,7 @@ export const deleteUser = async (actorUid: string, uid: string) => {
  *
  * См. шапку файла, design choice #2 (защиты) и #3 (invalidation).
  */
-export const changeRole = async (
-  actorUid: string,
-  uid: string,
-  dto: ChangeRoleDto
-) => {
+export const changeRole = async (actorUid: string, uid: string, dto: ChangeRoleDto) => {
   const before = await assertUserExists(uid);
 
   if (before.role === dto.role) return before; // no-op
@@ -620,11 +603,7 @@ export const changeRole = async (
  *
  * НИКОГДА не пишет plaintext password в audit/log — только флаг события.
  */
-export const resetPassword = async (
-  actorUid: string,
-  uid: string,
-  dto: ResetPasswordDto
-) => {
+export const resetPassword = async (actorUid: string, uid: string, dto: ResetPasswordDto) => {
   await assertUserExists(uid);
 
   const passwordHash = await hash(dto.password, BCRYPT_ROUNDS);
@@ -640,9 +619,7 @@ export const resetPassword = async (
   try {
     await removeAllTokensByUid(uid);
   } catch (err) {
-    logger.warn(
-      `resetPassword: failed to invalidate tokens for ${uid}: ${(err as Error).message}`
-    );
+    logger.warn(`resetPassword: failed to invalidate tokens for ${uid}: ${(err as Error).message}`);
   }
 
   await recordAuditLog({
@@ -719,9 +696,8 @@ const backfillAuthorUidForIdentity = async (
   mrsLinked: number;
   reviewsLinked: number;
 }> => {
-  const { commits, mergeRequests, mrReviews } = await import(
-    '@/db/drizzle/schema/git-data/schema'
-  );
+  // eslint-disable-next-line unused-imports/no-unused-vars
+  const { commits, mergeRequests, mrReviews } = await import('@/db/drizzle/schema/git-data/schema');
   const { projects } = await import('@/db/drizzle/schema/gitlab/schema');
   const { inArray, isNull } = await import('drizzle-orm');
 
@@ -785,9 +761,7 @@ const backfillAuthorUidForIdentity = async (
   );
   // `execute` для UPDATE возвращает rowCount в pg-драйвере. Для совместимости
   // делаем мягкий fallback.
-  const reviewsLinked = Number(
-    (reviewsResult as unknown as { rowCount?: number }).rowCount ?? 0
-  );
+  const reviewsLinked = Number((reviewsResult as unknown as { rowCount?: number }).rowCount ?? 0);
 
   return { commitsLinked, mrsLinked, reviewsLinked };
 };
@@ -821,9 +795,7 @@ export const reconcileGitlabIdentities = async (
   failed: number;
   skipped: number;
 }> => {
-  const allUsers = await db
-    .select({ uid: users.uid, mail: users.mail })
-    .from(users);
+  const allUsers = await db.select({ uid: users.uid, mail: users.mail }).from(users);
   const activeConnections = await db
     .select()
     .from(gitlabConnections)
@@ -870,9 +842,7 @@ export const reconcileGitlabIdentities = async (
         // ручной привязкой через `linkGitlabIdentity {email}`.
         const candidates = await client.searchUsers(user.mail);
 
-        const exact = candidates.find(
-          (c) => c.email?.toLowerCase() === user.mail.toLowerCase()
-        );
+        const exact = candidates.find((c) => c.email?.toLowerCase() === user.mail.toLowerCase());
         if (!exact) {
           skipped += 1;
           continue;
@@ -1055,10 +1025,7 @@ export const unlinkGitlabIdentity = async (
   const result = await db
     .delete(userGitlabIdentities)
     .where(
-      and(
-        eq(userGitlabIdentities.uid, identityUid),
-        eq(userGitlabIdentities.userUid, userUid)
-      )
+      and(eq(userGitlabIdentities.uid, identityUid), eq(userGitlabIdentities.userUid, userUid))
     )
     .returning({
       uid: userGitlabIdentities.uid,
@@ -1095,10 +1062,7 @@ export const unlinkGitlabIdentity = async (
  * auto-link by email). Возвращает только публичные поля (без password).
  */
 export const findUserByMail = async (mail: string) => {
-  const [row] = await db
-    .select(PUBLIC_USER_FIELDS)
-    .from(users)
-    .where(eq(users.mail, mail));
+  const [row] = await db.select(PUBLIC_USER_FIELDS).from(users).where(eq(users.mail, mail));
   return row ?? null;
 };
 

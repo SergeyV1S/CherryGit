@@ -1,13 +1,11 @@
 import type { BusFactorColor, BusFactorValue } from '@/db/drizzle/schema/metrics/schema';
 import type { MetricType } from '@/db/drizzle/schema/metrics/types/metric-type.type';
 
-import {
-  resolveModule,
-  type ModuleSpec
-} from '../lib/module-resolver';
-import { MetricCalculator } from './metric-calculator';
-
+import type { ModuleSpec } from '../lib/module-resolver';
 import type { CalculationContext } from './metric-calculator';
+
+import { resolveModule } from '../lib/module-resolver';
+import { MetricCalculator } from './metric-calculator';
 
 /**
  * Bus Factor по модулям (ВКР FR-10, доработка 2.6).
@@ -86,12 +84,11 @@ export class BusFactorCalculator extends MetricCalculator {
       }
     }
 
-    const moduleEntries = [...moduleAuthors.entries()]
-      // Стабильная сортировка по имени модуля — детерминированный вывод
-      // для тестов и UI; не зависит от порядка строк в выборке SQL.
-      .sort(([a], [b]) => a.localeCompare(b))
+    const moduleEntries = moduleAuthors
+      .entries()
+      .toSorted(([a], [b]) => a.localeCompare(b))
       .map(([name, authorsSet]) => {
-        const authors = [...authorsSet].sort();
+        const authors = authorsSet.toSorted();
         const activeContributors = authors.length;
         return {
           name,
@@ -104,9 +101,7 @@ export class BusFactorCalculator extends MetricCalculator {
       });
 
     const overallBusFactor =
-      moduleEntries.length > 0
-        ? Math.min(...moduleEntries.map((m) => m.activeContributors))
-        : null;
+      moduleEntries.length > 0 ? Math.min(...moduleEntries.map((m) => m.activeContributors)) : null;
 
     return {
       overallBusFactor,

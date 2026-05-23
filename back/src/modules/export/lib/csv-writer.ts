@@ -6,23 +6,19 @@ import { stringify } from 'csv-stringify/sync';
  * Опции отражают ВКР FR-12 «экспорт результатов в CSV» с учётом UX-нюансов
  * русскоязычного дашборда:
  *
- *   1. **UTF-8 BOM** (`﻿`) в начале файла — без него Excel-RU открывает
- *      кириллицу как `Ð°Ð±Ð²Ð³...` (cp1251-режим). С BOM Excel
- *      автоматически переключается на UTF-8.
- *
- *   2. **Разделитель — `;`** (по умолчанию). Microsoft Excel в локалях
+ *   1. **Разделитель — `;`** (по умолчанию). Microsoft Excel в локалях
  *      с десятичной запятой (RU/DE/FR) разбирает CSV с `;` без диалога
  *      «Импорт». Стандарт RFC 4180 рекомендует `,`, но в реальных
  *      корпоративных средах с Excel-RU `;` даёт лучший UX. Параметр
  *      `separator` оставляем настраиваемым, чтобы при необходимости
  *      админ мог переключить на `,` (через URL `?separator=,`).
  *
- *   3. **Quote-escape**: `csv-stringify` сам экранирует `;` `"` `\n` в
+ *   2. **Quote-escape**: `csv-stringify` сам экранирует `;` `"` `\n` в
  *      значениях, оборачивая в `"..."` и удваивая внутренние `"`.
  *      Это критично для `details` JSON-полей audit-логов и multiline
  *      описаний в commit messages.
  *
- *   4. **`null` / `undefined` → пустая строка** — стандарт для CSV;
+ *   3. **`null` / `undefined` → пустая строка** — стандарт для CSV;
  *      Excel показывает как пустую ячейку. JSONB-значения сериализуются
  *      в JSON-строку (`JSON.stringify`), даты — в ISO-8601.
  *
@@ -40,7 +36,7 @@ export interface CsvWriteOptions<T> {
    */
   columns: Array<{
     header: string;
-    key: keyof T | ((row: T) => unknown);
+    key: ((row: T) => unknown) | keyof T;
   }>;
   rows: T[];
   /** Разделитель: `;` (default — для Excel-RU) или `,` (RFC 4180). */
@@ -70,7 +66,9 @@ export const writeCsv = <T>(options: CsvWriteOptions<T>): Buffer => {
   const headerRow = options.columns.map((c) => c.header);
   const dataRows = options.rows.map((row) =>
     options.columns.map((c) =>
-      cellValue(typeof c.key === 'function' ? c.key(row) : (row as Record<string, unknown>)[c.key as string])
+      cellValue(
+        typeof c.key === 'function' ? c.key(row) : (row as Record<string, unknown>)[c.key as string]
+      )
     )
   );
 

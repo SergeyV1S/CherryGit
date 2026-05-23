@@ -73,11 +73,7 @@ export async function updateDepartment(
 ): Promise<void> {
   try {
     const dto = updateDepartmentSchema.parse(req.body);
-    const result = await DepartmentsService.updateDepartment(
-      req.user!.uid,
-      param(req, 'uid'),
-      dto
-    );
+    const result = await DepartmentsService.updateDepartment(req.user!.uid, param(req, 'uid'), dto);
     sendResponse(res, HttpStatus.OK, result);
   } catch (error) {
     next(error);
@@ -112,35 +108,19 @@ export async function listTeamsByDepartment(
   }
 }
 
-export async function attachTeam(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+export async function attachTeam(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const dto = attachTeamSchema.parse(req.body);
-    const result = await DepartmentsService.attachTeam(
-      req.user!.uid,
-      param(req, 'uid'),
-      dto
-    );
+    const result = await DepartmentsService.attachTeam(req.user!.uid, param(req, 'uid'), dto);
     sendResponse(res, HttpStatus.CREATED, result);
   } catch (error) {
     next(error);
   }
 }
 
-export async function detachTeam(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+export async function detachTeam(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    await DepartmentsService.detachTeam(
-      req.user!.uid,
-      param(req, 'uid'),
-      param(req, 'teamUid')
-    );
+    await DepartmentsService.detachTeam(req.user!.uid, param(req, 'uid'), param(req, 'teamUid'));
     sendResponse(res, HttpStatus.NO_CONTENT, null);
   } catch (error) {
     next(error);
@@ -162,11 +142,7 @@ export async function listUnassignedTeams(
 
 // ===== Heads =====
 
-export async function listHeads(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+export async function listHeads(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const result = await DepartmentsService.listHeads(param(req, 'uid'));
     sendResponse(res, HttpStatus.OK, result);
@@ -175,35 +151,19 @@ export async function listHeads(
   }
 }
 
-export async function assignHead(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+export async function assignHead(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const dto = assignHeadSchema.parse(req.body);
-    const result = await DepartmentsService.assignHead(
-      req.user!.uid,
-      param(req, 'uid'),
-      dto
-    );
+    const result = await DepartmentsService.assignHead(req.user!.uid, param(req, 'uid'), dto);
     sendResponse(res, HttpStatus.CREATED, result);
   } catch (error) {
     next(error);
   }
 }
 
-export async function unassignHead(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+export async function unassignHead(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    await DepartmentsService.unassignHead(
-      req.user!.uid,
-      param(req, 'uid'),
-      param(req, 'userUid')
-    );
+    await DepartmentsService.unassignHead(req.user!.uid, param(req, 'uid'), param(req, 'userUid'));
     sendResponse(res, HttpStatus.NO_CONTENT, null);
   } catch (error) {
     next(error);

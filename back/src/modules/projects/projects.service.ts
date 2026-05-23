@@ -47,7 +47,10 @@ export const listProjects = async () => {
     .leftJoin(teams, eq(teams.uid, teamProjects.teamUid));
 
   // Сворачиваем строки в `project + teams[]` (group by project.uid).
-  const grouped = new Map<string, { project: typeof projects.$inferSelect; teams: { uid: string; name: string }[] }>();
+  const grouped = new Map<
+    string,
+    { project: typeof projects.$inferSelect; teams: { uid: string; name: string }[] }
+  >();
   for (const row of rows) {
     const existing = grouped.get(row.project.uid);
     if (existing) {
@@ -75,10 +78,7 @@ export const getProject = async (uid: string) => {
     .innerJoin(teams, eq(teams.uid, teamProjects.teamUid))
     .where(eq(teamProjects.projectUid, uid));
 
-  const [syncStatus] = await db
-    .select()
-    .from(syncStatuses)
-    .where(eq(syncStatuses.projectUid, uid));
+  const [syncStatus] = await db.select().from(syncStatuses).where(eq(syncStatuses.projectUid, uid));
 
   return { project, teams: teamsRows, syncStatus: syncStatus ?? null };
 };
@@ -313,11 +313,7 @@ export const updateIncidentLabels = async (
   if (dto.hotfixLabels !== undefined) patch.hotfixLabels = dto.hotfixLabels;
   if (dto.revertLabels !== undefined) patch.revertLabels = dto.revertLabels;
 
-  const [updated] = await db
-    .update(projects)
-    .set(patch)
-    .where(eq(projects.uid, uid))
-    .returning();
+  const [updated] = await db.update(projects).set(patch).where(eq(projects.uid, uid)).returning();
 
   // Защита от гонки: между SELECT (existing) и UPDATE проект мог быть удалён
   // конкурирующим запросом. Без проверки `updated.hotfixLabels` упал бы по

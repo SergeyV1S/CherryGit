@@ -95,7 +95,7 @@ const buildWhere = (filter: AuditQueryFilter) => {
     // LIKE-prefix: action LIKE 'team.%'. ESCAPE НЕ обязателен — action
     // формируется из whitelist констант в сервисах, контролируемые
     // значения, спецсимволы не встречаются.
-    conditions.push(sql`${auditLogs.action} LIKE ${filter.actionPrefix + '%'}`);
+    conditions.push(sql`${auditLogs.action} LIKE ${`${filter.actionPrefix}%`}`);
   }
   if (filter.entityType) conditions.push(eq(auditLogs.entityType, filter.entityType));
   if (filter.entityId) conditions.push(eq(auditLogs.entityId, filter.entityId));
@@ -112,12 +112,8 @@ export interface AuditLogItem {
     secondName: string;
     uid: string;
   } | null;
-  /**
-   * `createdAt` приходит как ISO-строка: в `baseSchema` это `date()`
-   * (PG `DATE`), Drizzle сериализует в `YYYY-MM-DD`. Для точных меток
-   * времени UI должен использовать `occurredAt` (timestamp).
-   */
-  createdAt: string;
+  /** После миграции 0003 createdAt — timestamp (с точностью до секунды). */
+  createdAt: Date;
   details: Record<string, unknown> | null;
   entityId: string | null;
   entityType: string;
@@ -147,9 +143,7 @@ export interface AuditLogListResult {
  *
  * Дефолты: limit=100 (cap 500), offset=0.
  */
-export const listAuditLogs = async (
-  filter: AuditQueryFilter
-): Promise<AuditLogListResult> => {
+export const listAuditLogs = async (filter: AuditQueryFilter): Promise<AuditLogListResult> => {
   const where = buildWhere(filter);
   const limit = Math.min(filter.limit ?? 100, 500);
   const offset = filter.offset ?? 0;
@@ -175,10 +169,7 @@ export const listAuditLogs = async (
       .orderBy(desc(auditLogs.occurredAt))
       .limit(limit)
       .offset(offset),
-    db
-      .select({ total: count() })
-      .from(auditLogs)
-      .where(where)
+    db.select({ total: count() }).from(auditLogs).where(where)
   ]);
 
   return {
@@ -239,9 +230,7 @@ export const listAuditLogsForEntity = async (
     })
     .from(auditLogs)
     .leftJoin(users, eq(users.uid, auditLogs.userUid))
-    .where(
-      and(eq(auditLogs.entityType, entityType), eq(auditLogs.entityId, entityId))
-    )
+    .where(and(eq(auditLogs.entityType, entityType), eq(auditLogs.entityId, entityId)))
     .orderBy(asc(auditLogs.occurredAt))
     .limit(Math.min(limit, 1000));
 
@@ -304,10 +293,7 @@ export interface AuditStats {
  * Параметр `from`/`to` оба опциональны; если не заданы — за всё время.
  * Для «последние 7 дней» UI передаёт `from=now-7d`.
  */
-export const getAuditStats = async (
-  from?: Date,
-  to?: Date
-): Promise<AuditStats> => {
+export const getAuditStats = async (from?: Date, to?: Date): Promise<AuditStats> => {
   const conditions = [];
   if (from) conditions.push(gte(auditLogs.occurredAt, from));
   if (to) conditions.push(lte(auditLogs.occurredAt, to));
@@ -343,10 +329,7 @@ export const getAuditStats = async (
       .groupBy(auditLogs.userUid)
       .orderBy(desc(count()))
       .limit(50),
-    db
-      .select({ total: count() })
-      .from(auditLogs)
-      .where(where)
+    db.select({ total: count() }).from(auditLogs).where(where)
   ]);
 
   return { byAction, byEntityType, byUser, total };

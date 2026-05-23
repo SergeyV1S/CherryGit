@@ -28,9 +28,9 @@ export interface ModuleSpec {
 }
 
 export interface ResolvedModule {
+  isImplicit: boolean;
   name: string;
   pathPattern: string | null;
-  isImplicit: boolean;
 }
 
 /**

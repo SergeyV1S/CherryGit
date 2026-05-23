@@ -122,10 +122,7 @@ export const updateCodeModule = async (
   dto: Partial<CreateCodeModuleDto>,
   actorUid?: string
 ) => {
-  const [existing] = await db
-    .select()
-    .from(codeModules)
-    .where(eq(codeModules.uid, moduleUid));
+  const [existing] = await db.select().from(codeModules).where(eq(codeModules.uid, moduleUid));
   if (!existing) {
     throw new CustomError(HttpStatus.NOT_FOUND, 'Code module not found');
   }
@@ -188,15 +185,12 @@ export const updateCodeModule = async (
 };
 
 export const deleteCodeModule = async (moduleUid: string, actorUid?: string) => {
-  const result = await db
-    .delete(codeModules)
-    .where(eq(codeModules.uid, moduleUid))
-    .returning({
-      uid: codeModules.uid,
-      projectUid: codeModules.projectUid,
-      name: codeModules.name,
-      pathPattern: codeModules.pathPattern
-    });
+  const result = await db.delete(codeModules).where(eq(codeModules.uid, moduleUid)).returning({
+    uid: codeModules.uid,
+    projectUid: codeModules.projectUid,
+    name: codeModules.name,
+    pathPattern: codeModules.pathPattern
+  });
   if (result.length === 0) {
     throw new CustomError(HttpStatus.NOT_FOUND, 'Code module not found');
   }
@@ -219,12 +213,11 @@ export const deleteCodeModule = async (moduleUid: string, actorUid?: string) => 
  * Сейчас не используется напрямую (BusFactor выбирает по `projectUid IN (...)`),
  * но оставлен для будущего snapshot-writer'а (2.7).
  */
-export const findModulesByProject = async (projectUid: string) => {
-  return db
+export const findModulesByProject = async (projectUid: string) =>
+  db
     .select({
       name: codeModules.name,
       pathPattern: codeModules.pathPattern
     })
     .from(codeModules)
     .where(and(eq(codeModules.projectUid, projectUid)));
-};

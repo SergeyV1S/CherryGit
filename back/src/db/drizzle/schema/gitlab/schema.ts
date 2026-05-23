@@ -66,10 +66,7 @@ export const userGitlabIdentities = pgTable(
     gitlabUserId: integer('gitlab_user_id').notNull()
   },
   (t) => ({
-    uniqueUserPerConnection: unique('uq_user_per_connection').on(
-      t.userUid,
-      t.gitlabConnectionUid
-    ),
+    uniqueUserPerConnection: unique('uq_user_per_connection').on(t.userUid, t.gitlabConnectionUid),
     uniqueUsernamePerConnection: unique('uq_username_per_connection').on(
       t.gitlabConnectionUid,
       t.gitlabUsername
@@ -107,10 +104,7 @@ export const projects = pgTable(
      * попадает в окно деплоя — деплой помечается `isHotfix=true`.
      * По умолчанию `{hotfix, rollback}`.
      */
-    hotfixLabels: text('hotfix_labels')
-      .array()
-      .default(['hotfix', 'rollback'])
-      .notNull(),
+    hotfixLabels: text('hotfix_labels').array().default(['hotfix', 'rollback']).notNull(),
     /**
      * Метки MR, обозначающие откат изменений (для CFR).
      * Семантически парный набор к `hotfixLabels`, но хранится отдельно,

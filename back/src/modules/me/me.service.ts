@@ -1,20 +1,14 @@
 import { eq } from 'drizzle-orm';
 
-import type {
-  CycleTimeMrValue,
-  MrSizeValue
-} from '@/db/drizzle/schema/metrics/schema';
+import type { CycleTimeMrValue, MrSizeValue } from '@/db/drizzle/schema/metrics/schema';
+import type { AuthorFilter } from '@/modules/metrics/lib/compute-team';
 
 import { db } from '@/db/drizzle/connect';
 import { userGitlabIdentities } from '@/db/drizzle/schema/gitlab/schema';
 import { teamMembers, teamProjects, teams } from '@/db/drizzle/schema/teams/schema';
 import { users } from '@/db/drizzle/schema/user/schema';
-import { notImplemented } from '@/lib/not-implemented';
-import {
-  computeCycleTimeMr,
-  computeMrSize,
-  type AuthorFilter
-} from '@/modules/metrics/lib/compute-team';
+import { computeCycleTimeMr, computeMrSize } from '@/modules/metrics/lib/compute-team';
+import { getSnapshotHistory } from '@/modules/snapshots/snapshot.service';
 import { CustomError } from '@/utils/custom_error';
 import { HttpStatus } from '@/utils/enums/http-status';
 
@@ -99,8 +93,8 @@ export const getCurrentUser = async (userUid: string) => {
  * Один пользователь может иметь identity на нескольких GitLab-инстансах
  * (см. `gitlab_connections`). UI отображает список для админа и юзера.
  */
-export const getMyGitlabIdentities = async (userUid: string) => {
-  return db
+export const getMyGitlabIdentities = async (userUid: string) =>
+  db
     .select({
       uid: userGitlabIdentities.uid,
       gitlabConnectionUid: userGitlabIdentities.gitlabConnectionUid,
@@ -110,7 +104,6 @@ export const getMyGitlabIdentities = async (userUid: string) => {
     })
     .from(userGitlabIdentities)
     .where(eq(userGitlabIdentities.userUid, userUid));
-};
 
 // ===========================================================================
 // Личные метрики + командный baseline
@@ -131,11 +124,10 @@ export const getMyGitlabIdentities = async (userUid: string) => {
  * Если у пользователя 0 команд → `teams: []`, не 500.
  */
 export interface MyMetricsReport {
-  userUid: string;
-  periodStart: Date;
-  periodEnd: Date;
   /** Identities, использованные для фильтрации personal-секции. */
   gitlabUsernames: string[];
+  periodEnd: Date;
+  periodStart: Date;
   teams: {
     teamUid: string;
     teamName: string;
@@ -148,6 +140,7 @@ export interface MyMetricsReport {
       mr_size: MrSizeValue;
     };
   }[];
+  userUid: string;
 }
 
 export const getMyMetrics = async (
@@ -226,11 +219,53 @@ export const getMyMetrics = async (
 };
 
 /**
- * История индивидуальных показателей за весь период наблюдения (ВКР FR-14).
- * За пределами 3.2 — требует snapshot-таблицы для `entityType='user'`
- * (см. ДОРАБОТКИ 2.7 — «осталось доработать: снепшоты для индивидуальных
- * метрик»). Сейчас заглушка.
+ * История командных метрик для команд пользователя за период (ВКР FR-14).
+ *
+ * Реализация MVP: возвращает снепшоты team-level метрик (cycle_time_mr,
+ * mr_size) из metrics_snapshots за последние 90 дней для каждой команды
+ * пользователя. Это командные агрегаты, не персональная история — для
+ * персональных снепшотов (entityType='user') нужна отдельная задача 2.7+.
+ *
+ * Параметры:
+ *   from / to — опциональное окно (default: последние 90 дней).
  */
-export const getMyMetricsHistory = async (_userUid: string) => {
-  notImplemented('me.getMyMetricsHistory');
+export const getMyMetricsHistory = async (userUid: string, from?: Date, to?: Date) => {
+  const memberships = await db
+    .select({
+      teamUid: teams.uid,
+      teamName: teams.name,
+      teamRole: teamMembers.role
+    })
+    .from(teamMembers)
+    .innerJoin(teams, eq(teams.uid, teamMembers.teamUid))
+    .where(eq(teamMembers.userUid, userUid));
+
+  if (memberships.length === 0) {
+    return { userUid, teams: [] };
+  }
+
+  const teamHistories = await Promise.all(
+    memberships.map(async (m) => {
+      const [ctHistory, szHistory] = await Promise.all([
+        getSnapshotHistory(m.teamUid, 'cycle_time_mr', from, to),
+        getSnapshotHistory(m.teamUid, 'mr_size', from, to)
+      ]);
+      return {
+        teamUid: m.teamUid,
+        teamName: m.teamName,
+        teamRole: m.teamRole,
+        history: {
+          cycle_time_mr: ctHistory,
+          mr_size: szHistory
+        }
+      };
+    })
+  );
+
+  return {
+    userUid,
+    from: from ?? new Date(Date.now() - 90 * 24 * 60 * 60 * 1000),
+    to: to ?? new Date(),
+    teams: teamHistories
+  };
 };

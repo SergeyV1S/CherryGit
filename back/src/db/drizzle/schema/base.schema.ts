@@ -1,9 +1,9 @@
-import { date, uuid } from 'drizzle-orm/pg-core';
+import { timestamp, uuid } from 'drizzle-orm/pg-core';
 
 export const baseSchema = {
   uid: uuid('uid').defaultRandom().primaryKey().notNull(),
-  createdAt: date('created_at').defaultNow().notNull(),
-  updatedAt: date('updated_at')
-    .$onUpdate(() => new Date().toISOString())
+  createdAt: timestamp('created_at', { withTimezone: false }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: false })
+    .$onUpdate(() => new Date())
     .notNull()
 };

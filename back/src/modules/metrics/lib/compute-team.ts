@@ -1,4 +1,6 @@
-import { and, count, eq, gte, inArray, lte, or, sql, type SQL } from 'drizzle-orm';
+import type { SQL } from 'drizzle-orm';
+
+import { and, count, eq, gte, inArray, lte, or, sql } from 'drizzle-orm';
 
 import type {
   BusFactorValue,
@@ -20,30 +22,19 @@ import {
 } from '@/db/drizzle/schema/git-data/schema';
 import { codeModules } from '@/db/drizzle/schema/gitlab/schema';
 
-import {
-  BusFactorCalculator,
-  type BusFactorMrInput
-} from '../calculators/bus-factor.calculator';
-import {
-  ChangeFailureRateCalculator,
-  type ChangeFailureRateInput
-} from '../calculators/change-failure-rate.calculator';
-import {
-  CycleTimeMrCalculator,
-  type CycleTimeMrInput
-} from '../calculators/cycle-time-mr.calculator';
-import {
-  DeploymentFrequencyCalculator,
-  type DeploymentFrequencyInput
-} from '../calculators/deployment-frequency.calculator';
-import {
-  LeadTimeCalculator,
-  type LeadTimeSample
-} from '../calculators/lead-time.calculator';
-import {
-  MrSizeCalculator,
-  type MrSizeInput
-} from '../calculators/mr-size.calculator';
+import type { BusFactorMrInput } from '../calculators/bus-factor.calculator';
+import type { ChangeFailureRateInput } from '../calculators/change-failure-rate.calculator';
+import type { CycleTimeMrInput } from '../calculators/cycle-time-mr.calculator';
+import type { DeploymentFrequencyInput } from '../calculators/deployment-frequency.calculator';
+import type { LeadTimeSample } from '../calculators/lead-time.calculator';
+import type { MrSizeInput } from '../calculators/mr-size.calculator';
+
+import { BusFactorCalculator } from '../calculators/bus-factor.calculator';
+import { ChangeFailureRateCalculator } from '../calculators/change-failure-rate.calculator';
+import { CycleTimeMrCalculator } from '../calculators/cycle-time-mr.calculator';
+import { DeploymentFrequencyCalculator } from '../calculators/deployment-frequency.calculator';
+import { LeadTimeCalculator } from '../calculators/lead-time.calculator';
+import { MrSizeCalculator } from '../calculators/mr-size.calculator';
 
 /**
  * Чистые функции расчёта метрик команды на УЖЕ резолвленных `projectUids`
@@ -84,8 +75,8 @@ import {
  * чужие данные передав `{}` вместо валидного фильтра. Принцип fail-closed.
  */
 export interface AuthorFilter {
-  userUid?: string;
   gitlabUsernames?: string[];
+  userUid?: string;
 }
 
 /**
@@ -214,10 +205,7 @@ export const computeLeadTime = async (
   // (a) счётчик деплоев в окне — для прозрачности `deploymentsConsidered`;
   // (b) LEFT JOIN пар (deployment, MR, MIN(commit time)).
   const [[deploymentsCountRow], pairs] = await Promise.all([
-    db
-      .select({ value: count() })
-      .from(deployments)
-      .where(deploymentWindow),
+    db.select({ value: count() }).from(deployments).where(deploymentWindow),
     db
       .select({
         deployedAt: deployments.deployedAt,
@@ -350,10 +338,9 @@ export const computeBusFactor = async (
   ]);
 
   const dedupedModules = Array.from(
-    new Map(
-      moduleRows.map((m) => [`${m.name}::${m.pathPattern}`, m] as const)
-    ).values()
-  ).map((m) => ({ name: m.name, pathPattern: m.pathPattern }));
+    new Map(moduleRows.map((m) => [`${m.name}::${m.pathPattern}`, m] as const)).values(),
+    (m) => ({ name: m.name, pathPattern: m.pathPattern })
+  );
 
   const mrs: BusFactorMrInput[] = mrRows.map((r) => ({
     authorKey: r.authorUid ? `uid:${r.authorUid}` : `gitlab:${r.authorGitlabUsername}`,

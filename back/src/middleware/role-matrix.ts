@@ -122,10 +122,7 @@ export type TeamAccessMode = 'admin' | 'head' | 'lead' | 'member';
  * эндпоинтов (`/cycle-time-mr`, `/lead-time`, ...) применяется
  * `requireRole(...)` — там DEVELOPER не пройдёт, ему доступен только bundle.
  */
-export const canViewTeamMetric = (
-  accessMode: TeamAccessMode,
-  metricType: MetricType
-): boolean => {
+export const canViewTeamMetric = (accessMode: TeamAccessMode, metricType: MetricType): boolean => {
   if (accessMode === 'admin' || accessMode === 'lead' || accessMode === 'member') return true;
   // accessMode === 'head'
   return !HEAD_FORBIDDEN_METRICS.has(metricType);

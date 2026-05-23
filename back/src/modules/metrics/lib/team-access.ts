@@ -42,10 +42,10 @@ import { HttpStatus } from '@/utils/enums/http-status';
  * скрыты, а agregate baseline — показан.
  */
 export interface TeamAccessResult {
-  projectUids: string[];
-  team: { uid: string; name: string; departmentUid: string | null };
   /** Способ, которым actor получил доступ. Используется для фильтрации ответа. */
   accessMode: 'admin' | 'head' | 'lead' | 'member';
+  projectUids: string[];
+  team: { uid: string; name: string; departmentUid: string | null };
 }
 
 /**
@@ -58,10 +58,7 @@ export interface TeamAccessResult {
  * без cross-imports между этими модулями.
  */
 export const loadActorRole = async (actorUid: string): Promise<RoleType> => {
-  const [actor] = await db
-    .select({ role: users.role })
-    .from(users)
-    .where(eq(users.uid, actorUid));
+  const [actor] = await db.select({ role: users.role }).from(users).where(eq(users.uid, actorUid));
   if (!actor) {
     throw new CustomError(HttpStatus.FORBIDDEN, 'actor not found');
   }

@@ -1,10 +1,9 @@
 import type { NextFunction, Request, Response } from 'express';
 
+import type { TeamAccessResult } from '@/modules/metrics/lib/team-access';
+
 import { param } from '@/lib/request-params';
-import {
-  assertTeamAccess,
-  type TeamAccessResult
-} from '@/modules/metrics/lib/team-access';
+import { assertTeamAccess } from '@/modules/metrics/lib/team-access';
 import { CustomError } from '@/utils/custom_error';
 import { HttpStatus } from '@/utils/enums/http-status';
 
@@ -35,14 +34,13 @@ import { HttpStatus } from '@/utils/enums/http-status';
  * @param paramName — имя path-параметра c teamUid. По умолчанию `teamUid`
  *   (этот префикс используется в всех existing routes).
  */
-export const requireTeamAccess = (paramName = 'teamUid') => {
-  return async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
+export const requireTeamAccess =
+  (paramName = 'teamUid') =>
+  async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
     try {
       const teamUid = param(req, paramName);
       if (!teamUid) {
-        return next(
-          new CustomError(HttpStatus.BAD_REQUEST, `path param ${paramName} is required`)
-        );
+        return next(new CustomError(HttpStatus.BAD_REQUEST, `path param ${paramName} is required`));
       }
       // assertTeamAccess сам бросает 403/404 в соответствии с правилами ВКР.
       const access = await assertTeamAccess(req.user!.uid, teamUid);
@@ -52,7 +50,6 @@ export const requireTeamAccess = (paramName = 'teamUid') => {
       next(error);
     }
   };
-};
 
 /**
  * Хелпер: достать `req.teamAccess`, проверив, что middleware был вызван.

@@ -61,11 +61,7 @@ export async function listAllTeams(
   }
 }
 
-export async function createTeam(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+export async function createTeam(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const dto = createTeamSchema.parse(req.body);
     const result = await TeamsService.createTeam(req.user!.uid, dto);
@@ -75,11 +71,7 @@ export async function createTeam(
   }
 }
 
-export async function updateTeam(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+export async function updateTeam(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const dto = updateTeamSchema.parse(req.body);
     const result = await TeamsService.updateTeam(param(req, 'uid'), dto, req.user!.uid);
@@ -89,11 +81,7 @@ export async function updateTeam(
   }
 }
 
-export async function deleteTeam(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+export async function deleteTeam(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     await TeamsService.deleteTeam(req.user!.uid, param(req, 'uid'));
     sendResponse(res, HttpStatus.NO_CONTENT, null);
@@ -104,11 +92,7 @@ export async function deleteTeam(
 
 // ===== Members =====
 
-export async function listMembers(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+export async function listMembers(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const result = await TeamsService.listMembers(param(req, 'uid'));
     sendResponse(res, HttpStatus.OK, result);
@@ -117,11 +101,7 @@ export async function listMembers(
   }
 }
 
-export async function addMember(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+export async function addMember(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const dto = addTeamMemberSchema.parse(req.body);
     const result = await TeamsService.addMember(req.user!.uid, param(req, 'uid'), dto);
@@ -131,11 +111,7 @@ export async function addMember(
   }
 }
 
-export async function updateMember(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+export async function updateMember(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const dto = updateTeamMemberSchema.parse(req.body);
     const result = await TeamsService.updateMember(
@@ -150,11 +126,7 @@ export async function updateMember(
   }
 }
 
-export async function removeMember(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+export async function removeMember(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     await TeamsService.removeMember(req.user!.uid, param(req, 'uid'), param(req, 'memberUid'));
     sendResponse(res, HttpStatus.NO_CONTENT, null);
@@ -198,11 +170,7 @@ export async function detachProject(
   next: NextFunction
 ): Promise<void> {
   try {
-    await TeamsService.detachProject(
-      req.user!.uid,
-      param(req, 'uid'),
-      param(req, 'projectUid')
-    );
+    await TeamsService.detachProject(req.user!.uid, param(req, 'uid'), param(req, 'projectUid'));
     sendResponse(res, HttpStatus.NO_CONTENT, null);
   } catch (error) {
     next(error);

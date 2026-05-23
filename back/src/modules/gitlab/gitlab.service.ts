@@ -43,10 +43,7 @@ export const listConnections = async (ownerUid?: string) => {
  *  2. Зашифровать токен (AES-256-GCM) и сохранить в БД.
  *  3. Записать событие в журнал аудита.
  */
-export const createConnection = async (
-  ownerUid: string,
-  dto: CreateGitlabConnectionDto
-) => {
+export const createConnection = async (ownerUid: string, dto: CreateGitlabConnectionDto) => {
   const normalizedBaseUrl = dto.baseUrl.replace(/\/+$/, '');
   const client = new GitlabClient(normalizedBaseUrl, dto.token);
 
@@ -224,10 +221,7 @@ export const buildClient = async (connectionUid: string): Promise<GitlabClient> 
   return new GitlabClient(conn.baseUrl, token);
 };
 
-const markConnectionChecked = async (
-  uid: string,
-  status: 'active' | 'error'
-): Promise<void> => {
+const markConnectionChecked = async (uid: string, status: 'active' | 'error'): Promise<void> => {
   await db
     .update(gitlabConnections)
     .set({ status, lastCheckedAt: new Date() })

@@ -75,9 +75,7 @@ export class GitlabClient {
     const users = await this.paginate<GitlabUser>('/users', { username: trimmed });
     // GitLab username — регистронечувствительный при поиске, поэтому фильтруем
     // строго по lower-case match, чтобы вернуть только точное совпадение.
-    const exact = users.find(
-      (u) => u.username.toLowerCase() === trimmed.toLowerCase()
-    );
+    const exact = users.find((u) => u.username.toLowerCase() === trimmed.toLowerCase());
     return exact ?? null;
   }
 
@@ -119,11 +117,7 @@ export class GitlabClient {
    *            при `ref=undefined` используется `all=true`, что включает feature-ветки
    *            и может зашумлять Bus Factor / Lead Time (FR-10, FR-04).
    */
-  async fetchCommits(
-    gitlabProjectId: number,
-    since?: Date,
-    ref?: string
-  ): Promise<GitlabCommit[]> {
+  async fetchCommits(gitlabProjectId: number, since?: Date, ref?: string): Promise<GitlabCommit[]> {
     const params: Record<string, string> = { with_stats: 'true' };
     if (since) params.since = since.toISOString();
     if (ref) {
@@ -131,10 +125,7 @@ export class GitlabClient {
     } else {
       params.all = 'true';
     }
-    return this.paginate<GitlabCommit>(
-      `/projects/${gitlabProjectId}/repository/commits`,
-      params
-    );
+    return this.paginate<GitlabCommit>(`/projects/${gitlabProjectId}/repository/commits`, params);
   }
 
   /** Один коммит со stats (additions/deletions/total). */
@@ -161,17 +152,11 @@ export class GitlabClient {
       sort: 'asc'
     };
     if (sinceUpdatedAt) params.updated_after = sinceUpdatedAt.toISOString();
-    return this.paginate<GitlabMergeRequest>(
-      `/projects/${gitlabProjectId}/merge_requests`,
-      params
-    );
+    return this.paginate<GitlabMergeRequest>(`/projects/${gitlabProjectId}/merge_requests`, params);
   }
 
   /** Детальный MR (включает changes_count и diff_refs). */
-  async fetchMergeRequest(
-    gitlabProjectId: number,
-    mrIid: number
-  ): Promise<GitlabMergeRequest> {
+  async fetchMergeRequest(gitlabProjectId: number, mrIid: number): Promise<GitlabMergeRequest> {
     return this.requestJson<GitlabMergeRequest>(
       'GET',
       `/projects/${gitlabProjectId}/merge_requests/${mrIid}`
@@ -179,10 +164,7 @@ export class GitlabClient {
   }
 
   /** Коммиты, вошедшие в MR (используется для связи commits ↔ merge_requests). */
-  async fetchMergeRequestCommits(
-    gitlabProjectId: number,
-    mrIid: number
-  ): Promise<GitlabCommit[]> {
+  async fetchMergeRequestCommits(gitlabProjectId: number, mrIid: number): Promise<GitlabCommit[]> {
     return this.paginate<GitlabCommit>(
       `/projects/${gitlabProjectId}/merge_requests/${mrIid}/commits`
     );
@@ -212,14 +194,11 @@ export class GitlabClient {
    * Все заметки MR (комментарии и системные события).
    * Поле `system: false` + автор != автора MR → акт ревью (используется для firstReviewAt).
    */
-  async fetchMergeRequestNotes(
-    gitlabProjectId: number,
-    mrIid: number
-  ): Promise<GitlabNote[]> {
-    return this.paginate<GitlabNote>(
-      `/projects/${gitlabProjectId}/merge_requests/${mrIid}/notes`,
-      { sort: 'asc', order_by: 'created_at' }
-    );
+  async fetchMergeRequestNotes(gitlabProjectId: number, mrIid: number): Promise<GitlabNote[]> {
+    return this.paginate<GitlabNote>(`/projects/${gitlabProjectId}/merge_requests/${mrIid}/notes`, {
+      sort: 'asc',
+      order_by: 'created_at'
+    });
   }
 
   /**
@@ -243,10 +222,7 @@ export class GitlabClient {
   async fetchTags(gitlabProjectId: number, search?: string): Promise<GitlabTag[]> {
     const params: Record<string, string> = { order_by: 'updated', sort: 'desc' };
     if (search) params.search = search;
-    return this.paginate<GitlabTag>(
-      `/projects/${gitlabProjectId}/repository/tags`,
-      params
-    );
+    return this.paginate<GitlabTag>(`/projects/${gitlabProjectId}/repository/tags`, params);
   }
 
   // -----------------------------------------------------------------------
@@ -297,10 +273,7 @@ export class GitlabClient {
    * Итеративная offset-пагинация.
    * Запрашивает страницы пока сервер отдаёт `x-next-page`, защита MAX_PAGES.
    */
-  private async paginate<T>(
-    path: string,
-    query: Record<string, string> = {}
-  ): Promise<T[]> {
+  private async paginate<T>(path: string, query: Record<string, string> = {}): Promise<T[]> {
     const result: T[] = [];
     let page = 1;
 

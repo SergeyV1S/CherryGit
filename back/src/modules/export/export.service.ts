@@ -18,11 +18,7 @@ import { getTeamMetrics } from '@/modules/metrics/metrics.service';
 import { CustomError } from '@/utils/custom_error';
 import { HttpStatus } from '@/utils/enums/http-status';
 
-import type {
-  AuditExportQuery,
-  DepartmentDoraQuery,
-  PeriodExportQuery
-} from './dto/export.dto';
+import type { AuditExportQuery, DepartmentDoraQuery, PeriodExportQuery } from './dto/export.dto';
 
 import { csvFilename, writeCsv } from './lib/csv-writer';
 
@@ -93,10 +89,7 @@ export const exportTeamMetrics = async (
   query: PeriodExportQuery
 ): Promise<CsvExportResult> => {
   if (query.periodEnd < query.periodStart) {
-    throw new CustomError(
-      HttpStatus.BAD_REQUEST,
-      'periodEnd должен быть ≥ periodStart'
-    );
+    throw new CustomError(HttpStatus.BAD_REQUEST, 'periodEnd должен быть ≥ periodStart');
   }
 
   const bundle = await getTeamMetrics(actorUid, teamUid, query.periodStart, query.periodEnd);
@@ -176,10 +169,7 @@ export const exportTeamMergeRequests = async (
   query: PeriodExportQuery
 ): Promise<CsvExportResult> => {
   if (query.periodEnd < query.periodStart) {
-    throw new CustomError(
-      HttpStatus.BAD_REQUEST,
-      'periodEnd должен быть ≥ periodStart'
-    );
+    throw new CustomError(HttpStatus.BAD_REQUEST, 'periodEnd должен быть ≥ periodStart');
   }
 
   const { projectUids } = await assertTeamAccess(actorUid, teamUid);
@@ -309,10 +299,7 @@ export const exportDepartmentDora = async (
   query: DepartmentDoraQuery
 ): Promise<CsvExportResult> => {
   if (query.periodEnd < query.periodStart) {
-    throw new CustomError(
-      HttpStatus.BAD_REQUEST,
-      'periodEnd должен быть ≥ periodStart'
-    );
+    throw new CustomError(HttpStatus.BAD_REQUEST, 'periodEnd должен быть ≥ periodStart');
   }
 
   const actor = await db
@@ -332,10 +319,7 @@ export const exportDepartmentDora = async (
     );
   }
   if (role === 'HEAD' && actor.departmentUid !== departmentUid) {
-    throw new CustomError(
-      HttpStatus.FORBIDDEN,
-      'HEAD может выгружать только свой отдел'
-    );
+    throw new CustomError(HttpStatus.FORBIDDEN, 'HEAD может выгружать только свой отдел');
   }
 
   // Команды отдела (с проектами).
@@ -455,9 +439,7 @@ const DORA_COLUMNS = [
  * Хелпер: загрузить projectUid'ы для списка teamUid'ов одним SELECT'ом.
  * Возвращает Map<teamUid, projectUids[]> — для удобства lookup'а.
  */
-const loadProjectsForTeams = async (
-  teamUids: string[]
-): Promise<Map<string, string[]>> => {
+const loadProjectsForTeams = async (teamUids: string[]): Promise<Map<string, string[]>> => {
   if (teamUids.length === 0) return new Map();
 
   const { teamProjects } = await import('@/db/drizzle/schema/teams/schema');

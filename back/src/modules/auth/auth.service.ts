@@ -56,8 +56,7 @@ export const login = async (userData: LoginUserDto, ip: string) => {
     // CustomError 400/403, которые означают «не угадал пароль / нет юзера».
     if (
       error instanceof CustomError &&
-      (error.statusCode === HttpStatus.BAD_REQUEST ||
-        error.statusCode === HttpStatus.FORBIDDEN)
+      (error.statusCode === HttpStatus.BAD_REQUEST || error.statusCode === HttpStatus.FORBIDDEN)
     ) {
       await recordAuditLog({
         userUid: undefined,
@@ -169,4 +168,3 @@ const validateUser = async (userData: LoginUserDto, ip: string) => {
     throw error;
   }
 };
-

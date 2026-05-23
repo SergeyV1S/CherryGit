@@ -26,8 +26,9 @@ import { HttpStatus } from '@/utils/enums/http-status';
  *
  * @param paramName — имя path-параметра с UID. По умолчанию `userUid`.
  */
-export const requireSelfOrAdmin = (paramName = 'userUid') => {
-  return (req: Request, _res: Response, next: NextFunction): void => {
+export const requireSelfOrAdmin =
+  (paramName = 'userUid') =>
+  (req: Request, _res: Response, next: NextFunction): void => {
     const role = req.user?.role as RoleType | undefined;
     const actorUid = req.user?.uid;
     const targetUid = param(req, paramName);
@@ -36,9 +37,7 @@ export const requireSelfOrAdmin = (paramName = 'userUid') => {
       return next(new CustomError(HttpStatus.UNAUTHORIZED));
     }
     if (!targetUid) {
-      return next(
-        new CustomError(HttpStatus.BAD_REQUEST, `path param ${paramName} is required`)
-      );
+      return next(new CustomError(HttpStatus.BAD_REQUEST, `path param ${paramName} is required`));
     }
     if (role === 'ADMIN' || actorUid === targetUid) {
       return next();
@@ -47,4 +46,3 @@ export const requireSelfOrAdmin = (paramName = 'userUid') => {
     // «нет такого юзера» и «есть, но не твой» (избегаем enum-разведки).
     next(new CustomError(HttpStatus.FORBIDDEN, 'Access denied: individual data is private'));
   };
-};

@@ -120,12 +120,8 @@
           "name": "commits_project_uid_projects_uid_fk",
           "tableFrom": "commits",
           "tableTo": "projects",
-          "columnsFrom": [
-            "project_uid"
-          ],
-          "columnsTo": [
-            "uid"
-          ],
+          "columnsFrom": ["project_uid"],
+          "columnsTo": ["uid"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -133,12 +129,8 @@
           "name": "commits_author_uid_users_uid_fk",
           "tableFrom": "commits",
           "tableTo": "users",
-          "columnsFrom": [
-            "author_uid"
-          ],
-          "columnsTo": [
-            "uid"
-          ],
+          "columnsFrom": ["author_uid"],
+          "columnsTo": ["uid"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -148,10 +140,7 @@
         "uq_sha_per_project": {
           "name": "uq_sha_per_project",
           "nullsNotDistinct": false,
-          "columns": [
-            "project_uid",
-            "sha"
-          ]
+          "columns": ["project_uid", "sha"]
         }
       }
     },
@@ -178,12 +167,8 @@
           "name": "deployment_merge_requests_deployment_uid_deployments_uid_fk",
           "tableFrom": "deployment_merge_requests",
           "tableTo": "deployments",
-          "columnsFrom": [
-            "deployment_uid"
-          ],
-          "columnsTo": [
-            "uid"
-          ],
+          "columnsFrom": ["deployment_uid"],
+          "columnsTo": ["uid"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -191,12 +176,8 @@
           "name": "deployment_merge_requests_merge_request_uid_merge_requests_uid_fk",
           "tableFrom": "deployment_merge_requests",
           "tableTo": "merge_requests",
-          "columnsFrom": [
-            "merge_request_uid"
-          ],
-          "columnsTo": [
-            "uid"
-          ],
+          "columnsFrom": ["merge_request_uid"],
+          "columnsTo": ["uid"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -206,10 +187,7 @@
         "uq_deployment_mr": {
           "name": "uq_deployment_mr",
           "nullsNotDistinct": false,
-          "columns": [
-            "deployment_uid",
-            "merge_request_uid"
-          ]
+          "columns": ["deployment_uid", "merge_request_uid"]
         }
       }
     },
@@ -289,12 +267,8 @@
           "name": "deployments_project_uid_projects_uid_fk",
           "tableFrom": "deployments",
           "tableTo": "projects",
-          "columnsFrom": [
-            "project_uid"
-          ],
-          "columnsTo": [
-            "uid"
-          ],
+          "columnsFrom": ["project_uid"],
+          "columnsTo": ["uid"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -304,10 +278,7 @@
         "uq_tag_per_project": {
           "name": "uq_tag_per_project",
           "nullsNotDistinct": false,
-          "columns": [
-            "project_uid",
-            "tag"
-          ]
+          "columns": ["project_uid", "tag"]
         }
       }
     },
@@ -462,12 +433,8 @@
           "name": "merge_requests_project_uid_projects_uid_fk",
           "tableFrom": "merge_requests",
           "tableTo": "projects",
-          "columnsFrom": [
-            "project_uid"
-          ],
-          "columnsTo": [
-            "uid"
-          ],
+          "columnsFrom": ["project_uid"],
+          "columnsTo": ["uid"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -475,12 +442,8 @@
           "name": "merge_requests_author_uid_users_uid_fk",
           "tableFrom": "merge_requests",
           "tableTo": "users",
-          "columnsFrom": [
-            "author_uid"
-          ],
-          "columnsTo": [
-            "uid"
-          ],
+          "columnsFrom": ["author_uid"],
+          "columnsTo": ["uid"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -490,10 +453,7 @@
         "uq_mr_iid_per_project": {
           "name": "uq_mr_iid_per_project",
           "nullsNotDistinct": false,
-          "columns": [
-            "project_uid",
-            "gitlab_mr_iid"
-          ]
+          "columns": ["project_uid", "gitlab_mr_iid"]
         }
       }
     },
@@ -520,12 +480,8 @@
           "name": "mr_commits_merge_request_uid_merge_requests_uid_fk",
           "tableFrom": "mr_commits",
           "tableTo": "merge_requests",
-          "columnsFrom": [
-            "merge_request_uid"
-          ],
-          "columnsTo": [
-            "uid"
-          ],
+          "columnsFrom": ["merge_request_uid"],
+          "columnsTo": ["uid"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -533,12 +489,8 @@
           "name": "mr_commits_commit_uid_commits_uid_fk",
           "tableFrom": "mr_commits",
           "tableTo": "commits",
-          "columnsFrom": [
-            "commit_uid"
-          ],
-          "columnsTo": [
-            "uid"
-          ],
+          "columnsFrom": ["commit_uid"],
+          "columnsTo": ["uid"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -548,10 +500,7 @@
         "uq_mr_commit": {
           "name": "uq_mr_commit",
           "nullsNotDistinct": false,
-          "columns": [
-            "merge_request_uid",
-            "commit_uid"
-          ]
+          "columns": ["merge_request_uid", "commit_uid"]
         }
       }
     },
@@ -616,12 +565,8 @@
           "name": "mr_reviews_merge_request_uid_merge_requests_uid_fk",
           "tableFrom": "mr_reviews",
           "tableTo": "merge_requests",
-          "columnsFrom": [
-            "merge_request_uid"
-          ],
-          "columnsTo": [
-            "uid"
-          ],
+          "columnsFrom": ["merge_request_uid"],
+          "columnsTo": ["uid"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -629,12 +574,8 @@
           "name": "mr_reviews_reviewer_uid_users_uid_fk",
           "tableFrom": "mr_reviews",
           "tableTo": "users",
-          "columnsFrom": [
-            "reviewer_uid"
-          ],
-          "columnsTo": [
-            "uid"
-          ],
+          "columnsFrom": ["reviewer_uid"],
+          "columnsTo": ["uid"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -697,12 +638,8 @@
           "name": "code_modules_project_uid_projects_uid_fk",
           "tableFrom": "code_modules",
           "tableTo": "projects",
-          "columnsFrom": [
-            "project_uid"
-          ],
-          "columnsTo": [
-            "uid"
-          ],
+          "columnsFrom": ["project_uid"],
+          "columnsTo": ["uid"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -712,10 +649,7 @@
         "uq_module_per_project": {
           "name": "uq_module_per_project",
           "nullsNotDistinct": false,
-          "columns": [
-            "project_uid",
-            "name"
-          ]
+          "columns": ["project_uid", "name"]
         }
       }
     },
@@ -787,12 +721,8 @@
           "name": "gitlab_connections_owner_uid_users_uid_fk",
           "tableFrom": "gitlab_connections",
           "tableTo": "users",
-          "columnsFrom": [
-            "owner_uid"
-          ],
-          "columnsTo": [
-            "uid"
-          ],
+          "columnsFrom": ["owner_uid"],
+          "columnsTo": ["uid"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -874,12 +804,8 @@
           "name": "gitlab_raw_payloads_project_uid_projects_uid_fk",
           "tableFrom": "gitlab_raw_payloads",
           "tableTo": "projects",
-          "columnsFrom": [
-            "project_uid"
-          ],
-          "columnsTo": [
-            "uid"
-          ],
+          "columnsFrom": ["project_uid"],
+          "columnsTo": ["uid"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -959,19 +885,14 @@
           "type": "text[]",
           "primaryKey": false,
           "notNull": true,
-          "default": [
-            "hotfix",
-            "rollback"
-          ]
+          "default": ["hotfix", "rollback"]
         },
         "revert_labels": {
           "name": "revert_labels",
           "type": "text[]",
           "primaryKey": false,
           "notNull": true,
-          "default": [
-            "revert"
-          ]
+          "default": ["revert"]
         }
       },
       "indexes": {},
@@ -980,12 +901,8 @@
           "name": "projects_gitlab_connection_uid_gitlab_connections_uid_fk",
           "tableFrom": "projects",
           "tableTo": "gitlab_connections",
-          "columnsFrom": [
-            "gitlab_connection_uid"
-          ],
-          "columnsTo": [
-            "uid"
-          ],
+          "columnsFrom": ["gitlab_connection_uid"],
+          "columnsTo": ["uid"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -995,10 +912,7 @@
         "uq_project_per_connection": {
           "name": "uq_project_per_connection",
           "nullsNotDistinct": false,
-          "columns": [
-            "gitlab_connection_uid",
-            "gitlab_project_id"
-          ]
+          "columns": ["gitlab_connection_uid", "gitlab_project_id"]
         }
       }
     },
@@ -1070,12 +984,8 @@
           "name": "sync_statuses_project_uid_projects_uid_fk",
           "tableFrom": "sync_statuses",
           "tableTo": "projects",
-          "columnsFrom": [
-            "project_uid"
-          ],
-          "columnsTo": [
-            "uid"
-          ],
+          "columnsFrom": ["project_uid"],
+          "columnsTo": ["uid"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1085,9 +995,7 @@
         "sync_statuses_project_uid_unique": {
           "name": "sync_statuses_project_uid_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "project_uid"
-          ]
+          "columns": ["project_uid"]
         }
       }
     },
@@ -1146,12 +1054,8 @@
           "name": "user_gitlab_identities_user_uid_users_uid_fk",
           "tableFrom": "user_gitlab_identities",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_uid"
-          ],
-          "columnsTo": [
-            "uid"
-          ],
+          "columnsFrom": ["user_uid"],
+          "columnsTo": ["uid"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1159,12 +1063,8 @@
           "name": "user_gitlab_identities_gitlab_connection_uid_gitlab_connections_uid_fk",
           "tableFrom": "user_gitlab_identities",
           "tableTo": "gitlab_connections",
-          "columnsFrom": [
-            "gitlab_connection_uid"
-          ],
-          "columnsTo": [
-            "uid"
-          ],
+          "columnsFrom": ["gitlab_connection_uid"],
+          "columnsTo": ["uid"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1174,18 +1074,12 @@
         "uq_user_per_connection": {
           "name": "uq_user_per_connection",
           "nullsNotDistinct": false,
-          "columns": [
-            "user_uid",
-            "gitlab_connection_uid"
-          ]
+          "columns": ["user_uid", "gitlab_connection_uid"]
         },
         "uq_username_per_connection": {
           "name": "uq_username_per_connection",
           "nullsNotDistinct": false,
-          "columns": [
-            "gitlab_connection_uid",
-            "gitlab_username"
-          ]
+          "columns": ["gitlab_connection_uid", "gitlab_username"]
         }
       }
     },
@@ -1282,12 +1176,8 @@
           "name": "anomaly_signals_team_uid_teams_uid_fk",
           "tableFrom": "anomaly_signals",
           "tableTo": "teams",
-          "columnsFrom": [
-            "team_uid"
-          ],
-          "columnsTo": [
-            "uid"
-          ],
+          "columnsFrom": ["team_uid"],
+          "columnsTo": ["uid"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1295,12 +1185,8 @@
           "name": "anomaly_signals_dismissed_by_user_uid_users_uid_fk",
           "tableFrom": "anomaly_signals",
           "tableTo": "users",
-          "columnsFrom": [
-            "dismissed_by_user_uid"
-          ],
-          "columnsTo": [
-            "uid"
-          ],
+          "columnsFrom": ["dismissed_by_user_uid"],
+          "columnsTo": ["uid"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1376,12 +1262,8 @@
           "name": "audit_logs_user_uid_users_uid_fk",
           "tableFrom": "audit_logs",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_uid"
-          ],
-          "columnsTo": [
-            "uid"
-          ],
+          "columnsFrom": ["user_uid"],
+          "columnsTo": ["uid"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1463,13 +1345,7 @@
         "uq_snapshot_per_period": {
           "name": "uq_snapshot_per_period",
           "nullsNotDistinct": false,
-          "columns": [
-            "metric_type",
-            "entity_type",
-            "entity_id",
-            "period_start",
-            "period_end"
-          ]
+          "columns": ["metric_type", "entity_type", "entity_id", "period_start", "period_end"]
         }
       }
     },
@@ -1530,12 +1406,8 @@
           "name": "team_members_team_uid_teams_uid_fk",
           "tableFrom": "team_members",
           "tableTo": "teams",
-          "columnsFrom": [
-            "team_uid"
-          ],
-          "columnsTo": [
-            "uid"
-          ],
+          "columnsFrom": ["team_uid"],
+          "columnsTo": ["uid"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1543,12 +1415,8 @@
           "name": "team_members_user_uid_users_uid_fk",
           "tableFrom": "team_members",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_uid"
-          ],
-          "columnsTo": [
-            "uid"
-          ],
+          "columnsFrom": ["user_uid"],
+          "columnsTo": ["uid"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1558,10 +1426,7 @@
         "uq_member_per_team": {
           "name": "uq_member_per_team",
           "nullsNotDistinct": false,
-          "columns": [
-            "team_uid",
-            "user_uid"
-          ]
+          "columns": ["team_uid", "user_uid"]
         }
       }
     },
@@ -1608,12 +1473,8 @@
           "name": "team_projects_team_uid_teams_uid_fk",
           "tableFrom": "team_projects",
           "tableTo": "teams",
-          "columnsFrom": [
-            "team_uid"
-          ],
-          "columnsTo": [
-            "uid"
-          ],
+          "columnsFrom": ["team_uid"],
+          "columnsTo": ["uid"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1621,12 +1482,8 @@
           "name": "team_projects_project_uid_projects_uid_fk",
           "tableFrom": "team_projects",
           "tableTo": "projects",
-          "columnsFrom": [
-            "project_uid"
-          ],
-          "columnsTo": [
-            "uid"
-          ],
+          "columnsFrom": ["project_uid"],
+          "columnsTo": ["uid"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1636,10 +1493,7 @@
         "uq_team_project": {
           "name": "uq_team_project",
           "nullsNotDistinct": false,
-          "columns": [
-            "team_uid",
-            "project_uid"
-          ]
+          "columns": ["team_uid", "project_uid"]
         }
       }
     },
@@ -1692,12 +1546,8 @@
           "name": "teams_department_uid_departments_uid_fk",
           "tableFrom": "teams",
           "tableTo": "departments",
-          "columnsFrom": [
-            "department_uid"
-          ],
-          "columnsTo": [
-            "uid"
-          ],
+          "columnsFrom": ["department_uid"],
+          "columnsTo": ["uid"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1742,12 +1592,8 @@
           "name": "user_profle_user_uid_users_uid_fk",
           "tableFrom": "user_profle",
           "tableTo": "users",
-          "columnsFrom": [
-            "user_uid"
-          ],
-          "columnsTo": [
-            "uid"
-          ],
+          "columnsFrom": ["user_uid"],
+          "columnsTo": ["uid"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1835,12 +1681,8 @@
           "name": "users_department_uid_departments_uid_fk",
           "tableFrom": "users",
           "tableTo": "departments",
-          "columnsFrom": [
-            "department_uid"
-          ],
-          "columnsTo": [
-            "uid"
-          ],
+          "columnsFrom": ["department_uid"],
+          "columnsTo": ["uid"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1850,23 +1692,17 @@
         "users_email_unique": {
           "name": "users_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         },
         "users_mail_unique": {
           "name": "users_mail_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         },
         "users_phone_unique": {
           "name": "users_phone_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "phone"
-          ]
+          "columns": ["phone"]
         }
       }
     }

@@ -1,6 +1,6 @@
 {
-  "id": "7501d852-57b5-4eda-a8ff-998de7501a92",
-  "prevId": "0357c87d-3eb0-4298-b7ae-810fae7df6fc",
+  "id": "16405456-8d20-4377-b783-81a453769fdb",
+  "prevId": "90a1afeb-f41b-45ff-85a4-3487c746145c",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -17,14 +17,14 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true
         },
@@ -59,14 +59,14 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true
         },
@@ -204,14 +204,14 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true
         },
@@ -295,14 +295,14 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true
         },
@@ -404,6 +404,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
+        },
+        "file_paths": {
+          "name": "file_paths",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": []
         },
         "has_hotfix_label": {
           "name": "has_hotfix_label",
@@ -510,14 +517,14 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true
         },
@@ -589,14 +596,14 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true
         },
@@ -659,14 +666,14 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true
         },
@@ -736,14 +743,14 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true
         },
@@ -819,14 +826,14 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true
         },
@@ -922,14 +929,14 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true
         },
@@ -1005,14 +1012,14 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true
         },
@@ -1033,6 +1040,12 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "gitlab_user_id": {
           "name": "gitlab_user_id",
@@ -1089,14 +1102,14 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true
         },
@@ -1200,14 +1213,14 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true
         },
@@ -1277,14 +1290,14 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true
         },
@@ -1334,7 +1347,13 @@
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {}
+      "uniqueConstraints": {
+        "uq_snapshot_per_period": {
+          "name": "uq_snapshot_per_period",
+          "nullsNotDistinct": false,
+          "columns": ["metric_type", "entity_type", "entity_id", "period_start", "period_end"]
+        }
+      }
     },
     "public.team_members": {
       "name": "team_members",
@@ -1349,14 +1368,14 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true
         },
@@ -1430,14 +1449,14 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true
         },
@@ -1497,14 +1516,14 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true
         },
@@ -1555,14 +1574,14 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true
         },
@@ -1601,14 +1620,14 @@
         },
         "created_at": {
           "name": "created_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
-          "type": "date",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true
         },

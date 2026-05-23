@@ -1,6 +1,5 @@
 import { z } from 'zod';
 
-// eslint-disable-next-line e18e/ban-dependencies
 import 'dotenv/config';
 
 const envSchema = z.object({

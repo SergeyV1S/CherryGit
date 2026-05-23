@@ -67,9 +67,7 @@ import type {
 // Helpers
 // ===========================================================================
 
-const assertDepartmentExists = async (
-  uid: string
-): Promise<typeof departments.$inferSelect> => {
+const assertDepartmentExists = async (uid: string): Promise<typeof departments.$inferSelect> => {
   const [row] = await db.select().from(departments).where(eq(departments.uid, uid));
   if (!row) throw new CustomError(HttpStatus.NOT_FOUND, 'Department not found');
   return row;
@@ -192,11 +190,7 @@ export const createDepartment = async (actorUid: string, dto: CreateDepartmentDt
   return created;
 };
 
-export const updateDepartment = async (
-  actorUid: string,
-  uid: string,
-  dto: UpdateDepartmentDto
-) => {
+export const updateDepartment = async (actorUid: string, uid: string, dto: UpdateDepartmentDto) => {
   const before = await assertDepartmentExists(uid);
 
   const patch: Partial<typeof departments.$inferInsert> = {};
@@ -308,11 +302,7 @@ export const listTeamsByDepartment = async (departmentUid: string) => {
  * Удобно для admin-UI: повторное нажатие «Прикрепить» не плодит дубли в
  * журнале аудита и не вызывает фиктивных мутаций.
  */
-export const attachTeam = async (
-  actorUid: string,
-  departmentUid: string,
-  dto: AttachTeamDto
-) => {
+export const attachTeam = async (actorUid: string, departmentUid: string, dto: AttachTeamDto) => {
   await assertDepartmentExists(departmentUid);
   const team = await assertTeamExists(dto.teamUid);
 
@@ -355,11 +345,7 @@ export const attachTeam = async (
  *     «отвязал команду от Backend, но она была в Frontend» — это явная
  *     ошибка в URL, лучше 404 чем тихая no-op).
  */
-export const detachTeam = async (
-  actorUid: string,
-  departmentUid: string,
-  teamUid: string
-) => {
+export const detachTeam = async (actorUid: string, departmentUid: string, teamUid: string) => {
   await assertDepartmentExists(departmentUid);
 
   const result = await db
@@ -369,10 +355,7 @@ export const detachTeam = async (
     .returning({ uid: teams.uid });
 
   if (result.length === 0) {
-    throw new CustomError(
-      HttpStatus.NOT_FOUND,
-      'Team is not attached to this department'
-    );
+    throw new CustomError(HttpStatus.NOT_FOUND, 'Team is not attached to this department');
   }
 
   await recordAuditLog({
@@ -425,11 +408,7 @@ export const listHeads = async (departmentUid: string) => {
  * Если пользователь уже HEAD ДРУГОГО отдела — переназначение
  * (audit показывает `previousDepartmentUid`).
  */
-export const assignHead = async (
-  actorUid: string,
-  departmentUid: string,
-  dto: AssignHeadDto
-) => {
+export const assignHead = async (actorUid: string, departmentUid: string, dto: AssignHeadDto) => {
   await assertDepartmentExists(departmentUid);
   const user = await assertUserExists(dto.userUid);
 
@@ -444,11 +423,7 @@ export const assignHead = async (
   };
   if (dto.setRoleToHead) patch.role = 'HEAD';
 
-  const [updated] = await db
-    .update(users)
-    .set(patch)
-    .where(eq(users.uid, dto.userUid))
-    .returning();
+  const [updated] = await db.update(users).set(patch).where(eq(users.uid, dto.userUid)).returning();
   if (!updated) {
     throw new CustomError(HttpStatus.NOT_FOUND, 'User not found');
   }
@@ -485,11 +460,7 @@ export const assignHead = async (
  *   — пользователь НЕ привязан к этому отделу (защита от misclick'а
  *     «снял Васю с Backend, но Вася в Frontend»).
  */
-export const unassignHead = async (
-  actorUid: string,
-  departmentUid: string,
-  userUid: string
-) => {
+export const unassignHead = async (actorUid: string, departmentUid: string, userUid: string) => {
   await assertDepartmentExists(departmentUid);
 
   const result = await db
@@ -499,10 +470,7 @@ export const unassignHead = async (
     .returning({ uid: users.uid, role: users.role });
 
   if (result.length === 0) {
-    throw new CustomError(
-      HttpStatus.NOT_FOUND,
-      'User is not assigned to this department'
-    );
+    throw new CustomError(HttpStatus.NOT_FOUND, 'User is not assigned to this department');
   }
 
   await recordAuditLog({
@@ -528,8 +496,8 @@ export const unassignHead = async (
  * Не привязан к конкретному отделу — это «глобальный» список для модального
  * окна выбора. Используется в admin-UI 7.5.
  */
-export const listUnassignedTeams = async () => {
-  return db
+export const listUnassignedTeams = async () =>
+  db
     .select({
       uid: teams.uid,
       name: teams.name,
@@ -538,4 +506,3 @@ export const listUnassignedTeams = async () => {
     .from(teams)
     .where(isNull(teams.departmentUid))
     .orderBy(asc(teams.name));
-};

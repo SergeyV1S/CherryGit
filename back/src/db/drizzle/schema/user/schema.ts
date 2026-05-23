@@ -20,9 +20,9 @@ export const users = pgTable(
     birthDate: date('birth_date')
   },
   (table) => ({
-      usersMailUnique: unique('users_mail_unique').on(table.mail),
-      usersPhoneUnique: unique('users_phone_unique').on(table.phone)
-    })
+    usersMailUnique: unique('users_mail_unique').on(table.mail),
+    usersPhoneUnique: unique('users_phone_unique').on(table.phone)
+  })
 );
 
 export type InsertUser = typeof users.$inferInsert;

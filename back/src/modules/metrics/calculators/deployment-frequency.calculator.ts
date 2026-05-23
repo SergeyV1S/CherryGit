@@ -86,8 +86,9 @@ export class DeploymentFrequencyCalculator extends MetricCalculator {
     // Сортировка по строковому ключу работает корректно, потому что все
     // форматы (`YYYY-MM-DD`, `YYYY-MM`) лексикографически совпадают с
     // хронологическим порядком.
-    const timeline = [...bucketCounts.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
+    const timeline = bucketCounts
+      .entries()
+      .toSorted(([a], [b]) => a.localeCompare(b))
       .map(([bucket, c]) => ({ bucket, count: c }));
 
     return {
@@ -144,9 +145,7 @@ export class DeploymentFrequencyCalculator extends MetricCalculator {
       return date.toISOString().slice(0, 7);
     }
     // week → понедельник недели (UTC).
-    const monday = new Date(
-      Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
-    );
+    const monday = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
     // getUTCDay: 0=воскресенье, 1=понедельник, ..., 6=суббота. Сдвиг до пн.
     const day = monday.getUTCDay();
     const diffToMonday = day === 0 ? -6 : 1 - day;
