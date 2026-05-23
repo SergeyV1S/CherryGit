@@ -57,9 +57,9 @@ export const getCurrentUser = async (userUid: string) => {
 
   const memberships = await db
     .select({
-      teamUid: teams.uid,
-      teamName: teams.name,
-      teamRole: teamMembers.role,
+      uid: teams.uid,
+      name: teams.name,
+      myRole: teamMembers.role,
       departmentUid: teams.departmentUid
     })
     .from(teamMembers)
@@ -171,6 +171,7 @@ export const getMyMetrics = async (
     .innerJoin(teams, eq(teams.uid, teamMembers.teamUid))
     .where(eq(teamMembers.userUid, userUid));
 
+
   if (memberships.length === 0) {
     return { userUid, periodStart, periodEnd, gitlabUsernames, teams: [] };
   }
@@ -234,7 +235,7 @@ export const getMyMetricsHistory = async (userUid: string, from?: Date, to?: Dat
     .select({
       teamUid: teams.uid,
       teamName: teams.name,
-      teamRole: teamMembers.role
+      myRole: teamMembers.role
     })
     .from(teamMembers)
     .innerJoin(teams, eq(teams.uid, teamMembers.teamUid))
@@ -253,7 +254,7 @@ export const getMyMetricsHistory = async (userUid: string, from?: Date, to?: Dat
       return {
         teamUid: m.teamUid,
         teamName: m.teamName,
-        teamRole: m.teamRole,
+        myRole: m.myRole,
         history: {
           cycle_time_mr: ctHistory,
           mr_size: szHistory
