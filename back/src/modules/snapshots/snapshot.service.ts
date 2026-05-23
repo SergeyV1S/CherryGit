@@ -12,6 +12,7 @@ import { metricsSnapshots } from '@/db/drizzle/schema/metrics/schema';
 import { teamMembers, teamProjects, teams } from '@/db/drizzle/schema/teams/schema';
 import { users } from '@/db/drizzle/schema/user/schema';
 import { logger } from '@/lib/loger';
+import { HEAD_FORBIDDEN_METRICS } from '@/middleware/role-matrix';
 import { BusFactorCalculator } from '@/modules/metrics/calculators/bus-factor.calculator';
 import {
   computeBusFactor,
@@ -78,24 +79,20 @@ const daysAgo = (anchor: Date, days: number): Date =>
 // ===========================================================================
 
 /**
- * Какие metricTypes доступны какой роли (синхронно с `metrics.routes.ts`).
- *   /cycle-time-mr        — LEAD only
- *   /mr-size              — LEAD only
- *   /lead-time            — LEAD + HEAD
- *   /deployment-frequency — LEAD + HEAD
- *   /change-failure-rate  — LEAD + HEAD
- *   /bus-factor           — LEAD + HEAD
+ * Per-metric whitelist реализован в `middleware/role-matrix.ts`
+ * (доработка 3.1 — единое место правды). Здесь — только enforcement
+ * на уровне snapshot-reader'а.
  *
- * ADMIN всегда видит всё (для отладки/аудита).
+ * Правила (синхронно с `TEAM_METRIC_ACCESS`):
+ *   ADMIN/LEAD — все 6 метрик;
+ *   HEAD       — все кроме MR-level (cycle_time_mr, mr_size);
+ *   DEVELOPER  — не запрашивает напрямую (ходит через `/api/me/*`).
  *
- * Это правило применяется в reader-эндпоинтах: даже если `assertTeamAccess`
- * пропустил пользователя к команде, MR-level метрики (CT MR / MR Size)
- * не должны утечь к HEAD — он видит только DORA-агрегаты + Bus Factor.
+ * Эта проверка применяется ПОСЛЕ `assertTeamAccess` — даже если actor
+ * прошёл per-team scope, MR-level метрики не должны утечь к HEAD.
  */
-const HEAD_FORBIDDEN_METRICS = new Set<MetricType>(['cycle_time_mr', 'mr_size']);
-
 export const assertMetricAccessibleForRole = (role: RoleType, metricType: MetricType): void => {
-  if (role === 'ADMIN' || role === 'LEAD') return; // полный доступ к командным метрикам
+  if (role === 'ADMIN' || role === 'LEAD') return;
   if (role === 'HEAD' && HEAD_FORBIDDEN_METRICS.has(metricType)) {
     throw new CustomError(
       HttpStatus.FORBIDDEN,

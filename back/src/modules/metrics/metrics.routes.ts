@@ -9,15 +9,26 @@ import * as MetricsController from './metrics.controller';
  * Метрики уровня команды.
  * Монтируется поверх /teams/:teamUid (mergeParams для доступа к teamUid).
  *
- * Соответствие матрице доступа ВКР 2.2.7:
- *   /metrics               — DEV (+1) / LEAD (+2) / HEAD (+)
- *   /cycle-time-mr         — LEAD (+2) только
- *   /mr-size               — LEAD (+2) только (парная с cycle-time-mr)
- *   /lead-time             — LEAD (+2) / HEAD (+) — DORA throughput
- *   /deployment-frequency  — LEAD (+2) / HEAD (+) — DORA throughput (парная с CFR)
- *   /change-failure-rate   — LEAD (+2) / HEAD (+) — DORA instability (парная с DF)
- *   /bus-factor            — LEAD (+2) / HEAD (+)
- *   /anomalies             — LEAD (+2) только
+ * Матрица доступа (ВКР 2.2.7, синхрон с `middleware/role-matrix.ts:TEAM_METRIC_ACCESS`):
+ *   /metrics               — DEV-член / LEAD / HEAD (агрегаты команды)
+ *   /cycle-time-mr         — LEAD только         (review-метрика)
+ *   /mr-size               — LEAD только         (review-метрика, парная с CT MR)
+ *   /lead-time             — LEAD / HEAD         (DORA throughput)
+ *   /deployment-frequency  — LEAD / HEAD         (DORA throughput, парная с CFR)
+ *   /change-failure-rate   — LEAD / HEAD         (DORA instability, парная с DF)
+ *   /bus-factor            — LEAD / HEAD         (FR-10)
+ *   /anomalies             — LEAD только         (сигналы аномалий FR-13)
+ *
+ * Защита (доработка 3.1, двухступенчатая):
+ *   1. `requireRole(...)` — глобальный role-фильтр на маршруте;
+ *   2. `assertTeamAccess` внутри сервиса — per-team scope:
+ *      ADMIN везде / LEAD = лид этой команды / HEAD = голова отдела
+ *      этой команды / DEVELOPER = член этой команды (для baseline FR-07).
+ *
+ * `requireTeamAccess` middleware НЕ повешен здесь намеренно — сервисы
+ * `getTeam*` сами вызывают `assertTeamAccess` (см. `compute-team.ts`),
+ * двойной check был бы дублированием 4-x SQL-запросов на ровном месте.
+ * Это допустимо: сервис — единственный путь к данным, secure by design.
  */
 const router = Router({ mergeParams: true });
 

@@ -4,7 +4,8 @@ import type { MetricType } from '@/db/drizzle/schema/metrics/types/metric-type.t
 
 import { sendResponse } from '@/lib/reponse';
 import { param, queryString } from '@/lib/request-params';
-import { assertTeamAccess } from '@/modules/metrics/lib/team-access';
+import { expectTeamAccess } from '@/middleware/team-access.middleware';
+// `param` остаётся импортированным для `recalculateTeamSnapshots` ниже.
 import { CustomError } from '@/utils/custom_error';
 import { HttpStatus } from '@/utils/enums/http-status';
 
@@ -63,16 +64,18 @@ export async function getLatestSnapshot(
   next: NextFunction
 ): Promise<void> {
   try {
-    const teamUid = param(req, 'teamUid');
     const metricType = parseMetricType(queryString(req, 'metricType'));
 
-    // assertTeamAccess валидирует команду и роль (LEAD/HEAD/ADMIN).
-    // Дополнительно — assertMetricAccessibleForRole (MR-level не для HEAD).
-    await assertTeamAccess(req.user!.uid, teamUid);
+    // `requireTeamAccess` middleware (доработка 3.1) уже отработал — берём
+    // результат из `req.teamAccess`. Это даёт single-source-of-truth по
+    // per-team scope и снимает дубль SELECT'ов.
+    const { team } = expectTeamAccess(req);
+
+    // Per-metric фильтр (HEAD не видит cycle_time_mr/mr_size).
     const role = await SnapshotService.loadActorRole(req.user!.uid);
     SnapshotService.assertMetricAccessibleForRole(role, metricType);
 
-    const snapshot = await SnapshotService.getLatestSnapshot(teamUid, metricType);
+    const snapshot = await SnapshotService.getLatestSnapshot(team.uid, metricType);
     sendResponse(res, HttpStatus.OK, snapshot);
   } catch (error) {
     next(error);
@@ -91,16 +94,15 @@ export async function getSnapshotHistory(
   next: NextFunction
 ): Promise<void> {
   try {
-    const teamUid = param(req, 'teamUid');
     const metricType = parseMetricType(queryString(req, 'metricType'));
     const from = parseOptionalDate(queryString(req, 'from'), 'from');
     const to = parseOptionalDate(queryString(req, 'to'), 'to');
 
-    await assertTeamAccess(req.user!.uid, teamUid);
+    const { team } = expectTeamAccess(req);
     const role = await SnapshotService.loadActorRole(req.user!.uid);
     SnapshotService.assertMetricAccessibleForRole(role, metricType);
 
-    const history = await SnapshotService.getSnapshotHistory(teamUid, metricType, from, to);
+    const history = await SnapshotService.getSnapshotHistory(team.uid, metricType, from, to);
     sendResponse(res, HttpStatus.OK, history);
   } catch (error) {
     next(error);
