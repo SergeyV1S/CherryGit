@@ -103,7 +103,7 @@ function TeamDashboard({ teamUid }: { teamUid: string }) {
   const teamName = membership?.name ?? 'Команда';
 
   return (
-    <div className='p-6 space-y-6 max-w-5xl'>
+    <div className='page-shell'>
       {/* Header */}
       <div className='flex items-center gap-3'>
         <Button variant='ghost' size='icon-sm' onClick={() => navigate('/teams')}>
@@ -111,7 +111,7 @@ function TeamDashboard({ teamUid }: { teamUid: string }) {
         </Button>
         <div className='flex-1'>
           <div className='flex items-center gap-2'>
-            <h1 className='text-2xl font-bold tracking-tight'>{teamName}</h1>
+            <h1 className='page-title text-balance'>{teamName}</h1>
             {membership && (
               <Badge variant={membership.myRole === 'LEAD' ? 'success' : 'secondary'}>
                 {membership.myRole === 'LEAD' ? 'Тимлид' : 'Разработчик'}

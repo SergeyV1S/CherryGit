@@ -193,12 +193,12 @@ export default function DepartmentDoraPage() {
   });
 
   return (
-    <div className='p-6 space-y-6 max-w-6xl'>
+    <div className='page-shell'>
       {/* Header */}
-      <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
-        <div>
-          <h1 className='text-2xl font-bold tracking-tight'>DORA-метрики отдела</h1>
-          <p className='text-muted-foreground text-sm mt-1'>
+      <div className='flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between'>
+        <div className='min-w-0'>
+          <h1 className='page-title'>DORA-метрики отдела</h1>
+          <p className='page-subtitle text-balance'>
             Кросс-командные показатели поставки и надёжности
           </p>
         </div>

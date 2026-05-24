@@ -29,7 +29,7 @@ import { ROUTES } from '@shared/constants';
 import { useAuth } from '@shared/hooks';
 import { cn } from '@shared/lib/utils';
 import type { MeAccess, MeAccessStatus, Role } from '@shared/types';
-import { Alert, AlertDescription, AlertTitle, Badge, Button, Separator } from '@shared/ui';
+import { Alert, AlertDescription, AlertTitle, Badge, Button } from '@shared/ui';
 
 const ROLE_LABELS: Record<Role, string> = {
   DEVELOPER: 'Разработчик',
@@ -151,15 +151,29 @@ function NavItemLink({ item }: { item: NavItem }) {
       to={item.href}
       className={({ isActive }) =>
         cn(
-          'group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+          'group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all',
           isActive
-            ? 'bg-primary/10 text-primary'
-            : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+            ? 'bg-white/15 text-white shadow-inner'
+            : 'text-white/65 hover:bg-white/8 hover:text-white'
         )
       }
     >
-      <item.icon size={18} weight='duotone' />
-      <span>{item.label}</span>
+      {({ isActive }) => (
+        <>
+          {isActive && (
+            <span className='absolute inset-y-1 left-0 w-1 rounded-r-full bg-gradient-to-b from-rose-300 to-rose-500' />
+          )}
+          <item.icon
+            size={18}
+            weight={isActive ? 'fill' : 'duotone'}
+            className={cn(
+              'shrink-0 transition-colors',
+              isActive ? 'text-rose-300' : 'text-white/55 group-hover:text-rose-200'
+            )}
+          />
+          <span className='truncate'>{item.label}</span>
+        </>
+      )}
     </NavLink>
   );
 }
@@ -178,24 +192,54 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
   };
 
   return (
-    <aside className='bg-sidebar border-sidebar-border flex h-full w-64 flex-col border-r'>
+    <aside
+      className='relative flex h-full w-64 flex-col text-white'
+      style={{
+        background:
+          'linear-gradient(180deg, oklch(0.22 0.08 22) 0%, oklch(0.16 0.05 22) 100%)'
+      }}
+    >
+      {/* Декоративный cherry-блик */}
+      <div
+        aria-hidden
+        className='pointer-events-none absolute inset-x-0 top-0 h-px'
+        style={{
+          background:
+            'linear-gradient(90deg, transparent, oklch(0.78 0.20 22 / 0.7), transparent)'
+        }}
+      />
+
       {/* Brand */}
-      <div className='flex h-14 items-center gap-2 px-4'>
-        <div className='from-primary to-primary/60 flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br'>
-          <GitBranch size={16} weight='bold' className='text-primary-foreground' />
+      <div className='flex h-16 items-center gap-3 px-5'>
+        <div
+          className='relative flex h-9 w-9 items-center justify-center rounded-xl shadow-lg shadow-rose-900/40'
+          style={{
+            background:
+              'linear-gradient(135deg, oklch(0.78 0.22 22) 0%, oklch(0.55 0.21 22) 100%)'
+          }}
+        >
+          <GitBranch size={18} weight='bold' className='text-white drop-shadow' />
         </div>
-        <span className='font-semibold tracking-tight'>CherryGit</span>
+        <div className='min-w-0'>
+          <p className='text-base font-bold tracking-tight text-white'>CherryGit</p>
+          <p className='text-[10px] uppercase tracking-widest text-white/40'>
+            DORA · SPACE
+          </p>
+        </div>
         {onClose && (
-          <Button variant='ghost' size='icon-sm' className='ml-auto' onClick={onClose}>
+          <button
+            onClick={onClose}
+            className='ml-auto rounded-md p-1.5 text-white/60 transition-colors hover:bg-white/10 hover:text-white'
+          >
             <X size={16} />
-          </Button>
+          </button>
         )}
       </div>
 
-      <Separator />
+      <div className='mx-5 h-px bg-white/10' />
 
       {/* Navigation */}
-      <nav className='flex-1 overflow-y-auto p-3 space-y-1'>
+      <nav className='flex-1 space-y-1 overflow-y-auto px-3 py-4'>
         <div className='space-y-1'>
           {visibleNav.map((item) => (
             <NavItemLink key={item.href} item={item} />
@@ -204,8 +248,8 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
 
         {visibleAdmin.length > 0 && (
           <>
-            <div className='pt-4 pb-1'>
-              <p className='text-muted-foreground px-3 text-xs font-semibold uppercase tracking-wider'>
+            <div className='px-3 pb-1 pt-5'>
+              <p className='text-[10px] font-semibold uppercase tracking-[0.15em] text-white/35'>
                 Администрирование
               </p>
             </div>
@@ -218,33 +262,39 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
         )}
       </nav>
 
-      <Separator />
+      <div className='mx-5 h-px bg-white/10' />
 
       {/* User info */}
-      <div className='p-3'>
-        <div className='flex items-center gap-3 rounded-lg px-3 py-2'>
-          <div className='bg-muted flex h-8 w-8 shrink-0 items-center justify-center rounded-full'>
-            <UserCircle size={20} className='text-muted-foreground' />
+      <div className='space-y-2 p-3'>
+        <div className='flex items-center gap-3 rounded-lg bg-white/5 px-3 py-2.5'>
+          <div
+            className='flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white shadow-md'
+            style={{
+              background:
+                'linear-gradient(135deg, oklch(0.68 0.22 22), oklch(0.45 0.22 18))'
+            }}
+          >
+            <UserCircle size={20} weight='fill' />
           </div>
           <div className='min-w-0 flex-1'>
-            <p className='truncate text-sm font-medium'>
+            <p className='truncate text-sm font-medium text-white'>
               {user?.firstName} {user?.secondName}
             </p>
-            <Badge variant={ROLE_BADGE_VARIANT[role]} className='mt-0.5 text-[10px]'>
-              {ROLE_LABELS[role]}
-            </Badge>
+            <div className='mt-1'>
+              <Badge variant={ROLE_BADGE_VARIANT[role]} className='text-[10px]'>
+                {ROLE_LABELS[role]}
+              </Badge>
+            </div>
           </div>
         </div>
 
-        <Button
-          variant='ghost'
-          size='sm'
-          className='mt-1 w-full justify-start gap-2 text-muted-foreground'
+        <button
           onClick={handleLogout}
+          className='flex w-full items-center justify-start gap-2 rounded-lg px-3 py-2 text-sm font-medium text-white/65 transition-colors hover:bg-white/8 hover:text-white'
         >
           <Door size={16} />
           Выйти
-        </Button>
+        </button>
       </div>
     </aside>
   );
@@ -314,10 +364,10 @@ export function AppLayout() {
       {sidebarOpen && (
         <div className='fixed inset-0 z-40 md:hidden'>
           <div
-            className='bg-background/80 absolute inset-0 backdrop-blur-sm'
+            className='absolute inset-0 bg-black/50 backdrop-blur-sm'
             onClick={() => setSidebarOpen(false)}
           />
-          <div className='absolute inset-y-0 left-0 z-50'>
+          <div className='absolute inset-y-0 left-0 z-50 shadow-2xl'>
             <Sidebar onClose={() => setSidebarOpen(false)} />
           </div>
         </div>
@@ -326,20 +376,26 @@ export function AppLayout() {
       {/* Main content */}
       <div className='flex flex-1 flex-col overflow-hidden'>
         {/* Mobile top bar */}
-        <header className='bg-background border-b flex h-14 items-center gap-3 px-4 md:hidden'>
+        <header className='flex h-14 items-center gap-3 border-b border-border/60 bg-card/80 px-4 backdrop-blur-md md:hidden'>
           <Button variant='ghost' size='icon-sm' onClick={() => setSidebarOpen(true)}>
             <List size={20} />
           </Button>
-          <div className='from-primary to-primary/60 flex h-6 w-6 items-center justify-center rounded bg-gradient-to-br'>
-            <GitBranch size={13} weight='bold' className='text-primary-foreground' />
+          <div
+            className='flex h-7 w-7 items-center justify-center rounded-lg shadow-md'
+            style={{
+              background:
+                'linear-gradient(135deg, oklch(0.78 0.22 22) 0%, oklch(0.55 0.21 22) 100%)'
+            }}
+          >
+            <GitBranch size={14} weight='bold' className='text-white' />
           </div>
-          <span className='font-semibold text-sm'>CherryGit</span>
+          <span className='page-title text-base'>CherryGit</span>
         </header>
 
         {access && <AccessBanner access={access} />}
 
         {/* Page content */}
-        <main className='flex-1 overflow-y-auto'>
+        <main className='relative flex-1 overflow-y-auto'>
           <Outlet />
         </main>
       </div>

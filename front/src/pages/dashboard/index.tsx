@@ -28,7 +28,13 @@ export default function DashboardRedirect() {
   });
 
   if (!user) return <Navigate to={ROUTES.login} replace />;
-  if (isLoading) return <div className='bg-muted m-6 h-32 animate-pulse rounded-lg' />;
+  if (isLoading) {
+    return (
+      <div className='page-shell'>
+        <div className='h-32 animate-pulse rounded-xl bg-muted' />
+      </div>
+    );
+  }
 
   // ADMIN всегда идёт в админку.
   if (user.role === 'ADMIN') return <Navigate to={ROUTES.admin.projects} replace />;
@@ -36,12 +42,20 @@ export default function DashboardRedirect() {
   // Не активированные или без команды/отдела — fallback вместо пустого дашборда.
   if (access && access.status !== 'ready' && access.status !== 'temp_password') {
     return (
-      <div className='p-6'>
+      <div className='page-shell'>
         <Card>
-          <CardContent className='space-y-2 py-12 text-center'>
-            <Info size={32} weight='duotone' className='text-muted-foreground mx-auto' />
-            <p className='font-medium'>{access.message}</p>
-            <p className='text-muted-foreground text-sm'>
+          <CardContent className='flex flex-col items-center gap-3 py-12 text-center'>
+            <div
+              className='flex h-14 w-14 items-center justify-center rounded-2xl text-white shadow-lg shadow-rose-900/20'
+              style={{
+                background:
+                  'linear-gradient(135deg, oklch(0.78 0.22 22), oklch(0.45 0.22 18))'
+              }}
+            >
+              <Info size={26} weight='duotone' />
+            </div>
+            <p className='font-semibold text-balance'>{access.message}</p>
+            <p className='text-sm text-muted-foreground text-balance max-w-md'>
               Как только администратор завершит настройку, дашборды появятся здесь автоматически.
             </p>
           </CardContent>

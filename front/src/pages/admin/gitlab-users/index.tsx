@@ -382,10 +382,10 @@ export default function AdminGitlabUsersPage() {
   };
 
   return (
-    <div className='space-y-6 p-6'>
-      <div>
-        <h1 className='text-2xl font-bold tracking-tight'>GitLab участники</h1>
-        <p className='text-muted-foreground mt-1 text-sm'>
+    <div className='page-shell'>
+      <div className='min-w-0'>
+        <h1 className='page-title'>GitLab участники</h1>
+        <p className='page-subtitle text-balance'>
           Реестр пользователей, найденных через discovery. Создайте им аккаунты в CherryGit.
         </p>
       </div>

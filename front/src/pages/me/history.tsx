@@ -166,11 +166,11 @@ export default function MeHistoryPage() {
   const hasNoTeams = !user?.teams || user.teams.length === 0;
 
   return (
-    <div className='p-6 space-y-6 max-w-5xl'>
+    <div className='page-shell'>
       <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
         <div>
-          <h1 className='text-2xl font-bold tracking-tight'>История метрик</h1>
-          <p className='text-muted-foreground text-sm mt-1'>
+          <h1 className='page-title'>История метрик</h1>
+          <p className='page-subtitle text-balance'>
             Динамика командных снепшотов по командам, в которых вы состоите
           </p>
         </div>

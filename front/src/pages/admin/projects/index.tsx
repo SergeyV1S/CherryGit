@@ -762,11 +762,11 @@ export default function AdminProjectsPage() {
   const active = connections?.find((c) => c.uid === activeConnection) ?? null;
 
   return (
-    <div className='space-y-6 p-6'>
-      <div className='flex items-center justify-between'>
-        <div>
-          <h1 className='text-2xl font-bold tracking-tight'>Проекты</h1>
-          <p className='text-muted-foreground mt-1 text-sm'>
+    <div className='page-shell'>
+      <div className='flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between'>
+        <div className='min-w-0'>
+          <h1 className='page-title'>Проекты</h1>
+          <p className='page-subtitle text-balance'>
             Подключайте GitLab-проекты, чтобы система начала собирать метрики и активировала
             аккаунты их участников.
           </p>

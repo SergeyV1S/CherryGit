@@ -9,6 +9,8 @@ export default eslint({
     'perfectionist/sort-imports': ['warn'],
     'node/prefer-global/buffer': ['error', 'always'],
     'node/prefer-global/process': ['error', 'always'],
-    'e18e/prefer-array-to-sorted': ['off']
+    'e18e/prefer-array-to-sorted': ['off'],
+    'e18e/ban-dependencies': ['off'],
+    'unicorn/number-literal-case': ['off']
   }
 });

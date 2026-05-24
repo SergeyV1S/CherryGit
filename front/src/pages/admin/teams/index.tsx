@@ -634,11 +634,11 @@ export default function AdminTeamsPage() {
   });
 
   return (
-    <div className='max-w-4xl space-y-6 p-6'>
-      <div className='flex items-center justify-between'>
-        <div>
-          <h1 className='text-2xl font-bold tracking-tight'>Команды</h1>
-          <p className='text-muted-foreground mt-1 text-sm'>
+    <div className='page-shell'>
+      <div className='flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between'>
+        <div className='min-w-0'>
+          <h1 className='page-title'>Команды</h1>
+          <p className='page-subtitle text-balance'>
             Сформируйте команды и распределите по ним пользователей. После назначения у них
             появятся дашборды.
           </p>

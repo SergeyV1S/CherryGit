@@ -45,20 +45,42 @@ export default function LoginPage() {
   };
 
   return (
-    <div className='bg-muted/40 flex min-h-screen items-center justify-center p-4'>
-      <div className='w-full max-w-sm'>
+    <div className='relative flex min-h-screen items-center justify-center overflow-hidden p-4'>
+      {/* Декоративные cherry-blobs */}
+      <div
+        aria-hidden
+        className='pointer-events-none absolute -left-32 -top-32 h-96 w-96 rounded-full opacity-60 blur-3xl'
+        style={{ background: 'oklch(0.78 0.20 22 / 0.5)' }}
+      />
+      <div
+        aria-hidden
+        className='pointer-events-none absolute -bottom-32 -right-32 h-96 w-96 rounded-full opacity-50 blur-3xl'
+        style={{ background: 'oklch(0.55 0.21 22 / 0.4)' }}
+      />
+
+      <div className='relative w-full max-w-sm'>
         {/* Brand */}
-        <div className='mb-6 flex flex-col items-center gap-2'>
-          <div className='from-primary to-primary/60 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br shadow-md'>
-            <GitBranch size={20} weight='bold' className='text-primary-foreground' />
+        <div className='mb-8 flex flex-col items-center gap-3 text-center'>
+          <div
+            className='flex h-14 w-14 items-center justify-center rounded-2xl shadow-xl shadow-rose-900/30'
+            style={{
+              background:
+                'linear-gradient(135deg, oklch(0.78 0.22 22) 0%, oklch(0.45 0.22 18) 100%)'
+            }}
+          >
+            <GitBranch size={28} weight='bold' className='text-white drop-shadow' />
           </div>
-          <span className='text-xl font-bold tracking-tight'>CherryGit</span>
-          <p className='text-muted-foreground text-sm'>Аналитика Git-процессов</p>
+          <div>
+            <h1 className='page-title text-3xl'>CherryGit</h1>
+            <p className='mt-1 text-sm text-muted-foreground'>
+              Аналитика процессов разработки
+            </p>
+          </div>
         </div>
 
-        <Card>
-          <CardHeader className='pb-4'>
-            <CardTitle className='text-lg'>Вход в систему</CardTitle>
+        <Card className='backdrop-blur-md'>
+          <CardHeader className='pb-3'>
+            <CardTitle className='text-xl'>Вход в систему</CardTitle>
             <CardDescription>Введите данные вашей учётной записи</CardDescription>
           </CardHeader>
 
@@ -67,7 +89,7 @@ export default function LoginPage() {
               {serverError && (
                 <Alert variant='destructive'>
                   <Warning size={16} />
-                  <AlertDescription>{serverError}</AlertDescription>
+                  <AlertDescription className='break-anywhere'>{serverError}</AlertDescription>
                 </Alert>
               )}
 
@@ -95,13 +117,13 @@ export default function LoginPage() {
                     placeholder='••••••••'
                     autoComplete='current-password'
                     aria-invalid={!!errors.password}
-                    className='pr-10'
+                    className='pr-11'
                     {...register('password')}
                   />
                   <button
                     type='button'
                     tabIndex={-1}
-                    className='text-muted-foreground hover:text-foreground absolute right-3 top-1/2 -translate-y-1/2 transition-colors'
+                    className='absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary'
                     onClick={() => setShowPassword((v) => !v)}
                   >
                     {showPassword ? <EyeSlash size={16} /> : <Eye size={16} />}
@@ -112,12 +134,12 @@ export default function LoginPage() {
                 )}
               </div>
 
-              <Button type='submit' className='w-full' disabled={isSubmitting}>
+              <Button type='submit' size='lg' className='mt-2 w-full' disabled={isSubmitting}>
                 {isSubmitting ? 'Вход...' : 'Войти'}
               </Button>
             </form>
 
-            <p className='text-muted-foreground mt-4 text-center text-xs'>
+            <p className='mt-5 text-center text-xs text-muted-foreground text-balance'>
               Аккаунты создаются автоматически администратором при подключении проекта.
             </p>
           </CardContent>
