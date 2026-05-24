@@ -51,7 +51,11 @@ const seed = async () => {
       secondName,
       mail,
       password: hashedPassword,
-      role: 'ADMIN'
+      role: 'ADMIN',
+      // ADMIN-seed создаётся как уже «активированный» — иначе auth-гейт
+      // (provisioned_at IS NOT NULL OR role='ADMIN') пропустит его только
+      // благодаря OR-ветке. Ставим явно, чтобы аккаунт выглядел консистентно.
+      provisionedAt: new Date()
     });
 
     console.log('');

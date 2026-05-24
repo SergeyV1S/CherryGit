@@ -1,4 +1,4 @@
-import { date, pgTable, text, unique, uuid } from 'drizzle-orm/pg-core';
+import { boolean, date, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
 
 import type { RoleType } from './types/role.type';
 
@@ -17,7 +17,23 @@ export const users = pgTable(
     role: text('role').$type<RoleType>().default('DEVELOPER').notNull(),
     /** Отдел разработки, к которому относится пользователь (для роли HEAD) */
     departmentUid: uuid('department_uid').references(() => departments.uid),
-    birthDate: date('birth_date')
+    birthDate: date('birth_date'),
+    /**
+     * Момент, в который admin подключил GitLab-проект и система сгенерировала
+     * этот аккаунт из gitlab_users. null = аккаунт не активирован, login
+     * запрещён (см. auth.service.validateUser → 403 PROVISION_PENDING).
+     * Поле проставляется provisioningService.provisionGitlabUser автоматически
+     * после успешного `connectProject`. Для роли ADMIN — устанавливается
+     * вручную при seed первого админа.
+     */
+    provisionedAt: timestamp('provisioned_at'),
+    /**
+     * true = у пользователя сейчас стоит временный пароль, сгенерированный
+     * системой при provisioning. Используется UI чтобы показать «измените
+     * пароль» баннер. Сбрасывается, когда пользователь сменит пароль через
+     * /api/me/password (флоу будет добавлен отдельно во фронте).
+     */
+    isTempPassword: boolean('is_temp_password').default(false).notNull()
   },
   (table) => ({
     usersMailUnique: unique('users_mail_unique').on(table.mail),

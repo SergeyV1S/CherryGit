@@ -5,25 +5,31 @@ import {
   ChartBar,
   ChartLineUp,
   ClipboardText,
+  ClockCounterClockwise,
   Door,
   Folders,
   GitBranch,
+  GitlabLogo,
   Gear,
   House,
+  Info,
   List,
   Shield,
   SlidersHorizontal,
   Tree,
   UserCircle,
   Users,
+  Warning,
   X
 } from '@phosphor-icons/react';
+import { useQuery } from '@tanstack/react-query';
 
+import { meApi } from '@shared/api/me.api';
 import { ROUTES } from '@shared/constants';
 import { useAuth } from '@shared/hooks';
-import type { Role } from '@shared/types';
-import { Badge, Button, Separator } from '@shared/ui';
 import { cn } from '@shared/lib/utils';
+import type { MeAccess, MeAccessStatus, Role } from '@shared/types';
+import { Alert, AlertDescription, AlertTitle, Badge, Button, Separator } from '@shared/ui';
 
 const ROLE_LABELS: Record<Role, string> = {
   DEVELOPER: 'Разработчик',
@@ -57,6 +63,12 @@ const NAV_ITEMS: NavItem[] = [
     roles: ['DEVELOPER', 'LEAD', 'HEAD', 'ADMIN']
   },
   {
+    label: 'История метрик',
+    href: ROUTES.developer.history,
+    icon: ClockCounterClockwise,
+    roles: ['DEVELOPER', 'LEAD', 'HEAD', 'ADMIN']
+  },
+  {
     label: 'Дашборд команды',
     href: '/teams',
     icon: ChartBar,
@@ -84,6 +96,24 @@ const NAV_ITEMS: NavItem[] = [
 
 const ADMIN_NAV_ITEMS: NavItem[] = [
   {
+    label: 'GitLab',
+    href: ROUTES.admin.gitlab,
+    icon: GitBranch,
+    roles: ['ADMIN']
+  },
+  {
+    label: 'Проекты',
+    href: ROUTES.admin.projects,
+    icon: Folders,
+    roles: ['ADMIN']
+  },
+  {
+    label: 'GitLab участники',
+    href: ROUTES.admin.gitlabUsers,
+    icon: GitlabLogo,
+    roles: ['ADMIN']
+  },
+  {
     label: 'Пользователи',
     href: ROUTES.admin.users,
     icon: Users,
@@ -98,18 +128,6 @@ const ADMIN_NAV_ITEMS: NavItem[] = [
   {
     label: 'Отделы',
     href: ROUTES.admin.departments,
-    icon: Folders,
-    roles: ['ADMIN']
-  },
-  {
-    label: 'GitLab',
-    href: ROUTES.admin.gitlab,
-    icon: GitBranch,
-    roles: ['ADMIN']
-  },
-  {
-    label: 'Проекты',
-    href: ROUTES.admin.projects,
     icon: Folders,
     roles: ['ADMIN']
   },
@@ -232,8 +250,58 @@ function Sidebar({ onClose }: { onClose?: () => void }) {
   );
 }
 
+/**
+ * Баннер сверху страницы — берёт MeAccess из /api/me/access и информирует юзера,
+ * почему он пока не видит дашборды. ADMIN никогда не блокируется.
+ */
+function AccessBanner({ access }: { access: MeAccess }) {
+  if (access.status === 'ready') return null;
+
+  const config: Record<
+    Exclude<MeAccessStatus, 'ready'>,
+    { title: string; variant: 'default' | 'destructive'; icon: React.ElementType }
+  > = {
+    pending_provision: {
+      title: 'Аккаунт ещё не активирован',
+      variant: 'destructive',
+      icon: Warning
+    },
+    pending_assignment: {
+      title: 'Вас ещё не добавили в команду',
+      variant: 'default',
+      icon: Info
+    },
+    temp_password: {
+      title: 'Используется временный пароль',
+      variant: 'default',
+      icon: Warning
+    }
+  };
+
+  const cfg = config[access.status];
+  const Icon = cfg.icon;
+
+  return (
+    <div className='border-b px-6 py-3'>
+      <Alert variant={cfg.variant}>
+        <Icon size={16} />
+        <AlertTitle>{cfg.title}</AlertTitle>
+        <AlertDescription>{access.message}</AlertDescription>
+      </Alert>
+    </div>
+  );
+}
+
 export function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { user } = useAuth();
+
+  const { data: access } = useQuery({
+    queryKey: ['me-access'],
+    queryFn: () => meApi.getMyAccess(),
+    enabled: Boolean(user),
+    refetchInterval: 60_000
+  });
 
   return (
     <div className='flex h-screen overflow-hidden'>
@@ -267,6 +335,8 @@ export function AppLayout() {
           </div>
           <span className='font-semibold text-sm'>CherryGit</span>
         </header>
+
+        {access && <AccessBanner access={access} />}
 
         {/* Page content */}
         <main className='flex-1 overflow-y-auto'>

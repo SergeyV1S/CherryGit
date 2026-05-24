@@ -25,8 +25,31 @@ export interface CurrentUser {
   mail: string;
   role: Role;
   departmentUid: string | null;
+  provisionedAt: string | null;
+  isTempPassword: boolean;
   teams: TeamMembership[];
   gitlabIdentities: GitlabIdentity[];
+}
+
+/**
+ * Состояние доступа текущего пользователя — гейт для UI-баннеров.
+ * Соответствует backend MeAccessStatus.
+ */
+export type MeAccessStatus =
+  | 'ready'
+  | 'pending_provision'
+  | 'pending_assignment'
+  | 'temp_password';
+
+export interface MeAccess {
+  uid: string;
+  role: Role;
+  status: MeAccessStatus;
+  teamsCount: number;
+  hasDepartment: boolean;
+  isTempPassword: boolean;
+  provisionedAt: string | null;
+  message: string;
 }
 
 export interface ApiResponse<T> {
@@ -185,6 +208,66 @@ export interface ChangeFailureRateValue {
   totalDeploys: number;
 }
 
+export interface TeamLeadTimeReport {
+  metricType: 'lead_time';
+  periodStart: string;
+  periodEnd: string;
+  teamUid: string;
+  projectUids: string[];
+  value: LeadTimeValue;
+}
+
+export interface TeamDeploymentFrequencyReport {
+  metricType: 'deployment_frequency';
+  periodStart: string;
+  periodEnd: string;
+  teamUid: string;
+  projectUids: string[];
+  value: DeploymentFrequencyValue;
+}
+
+export interface TeamChangeFailureRateReport {
+  metricType: 'change_failure_rate';
+  periodStart: string;
+  periodEnd: string;
+  teamUid: string;
+  projectUids: string[];
+  value: ChangeFailureRateValue;
+}
+
+// ---------------------------------------------------------------------------
+// Snapshots history (personal /me/metrics/history)
+// ---------------------------------------------------------------------------
+
+export interface MetricSnapshot {
+  uid: string;
+  entityType: 'team' | 'user';
+  entityId: string;
+  metricType: 'cycle_time_mr' | 'mr_size' | 'lead_time' | 'deployment_frequency' | 'change_failure_rate' | 'bus_factor';
+  periodStart: string;
+  periodEnd: string;
+  value: unknown;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MyMetricsHistoryTeam {
+  teamUid: string;
+  teamName: string;
+  myRole: TeamRole;
+  history: {
+    cycle_time_mr: MetricSnapshot[];
+    mr_size: MetricSnapshot[];
+  };
+}
+
+export interface MyMetricsHistoryReport {
+  userUid: string;
+  from: string;
+  to: string;
+  teams: MyMetricsHistoryTeam[];
+}
+
 export interface CrossTeamDoraTeam {
   teamUid: string;
   teamName: string;
@@ -218,26 +301,98 @@ export interface GitlabConnection {
   updatedAt: string;
 }
 
-export interface GitlabProject {
-  id: number;
+/**
+ * Запись из пула discovery (`gitlab_available_projects`).
+ * Поле `connectedProjectUid != null` означает, что проект уже подключён;
+ * `connectedProjectName` — имя в `projects` (как было сохранено).
+ */
+export interface AvailableProject {
+  uid: string;
+  gitlabProjectId: number;
   name: string;
-  nameWithNamespace: string;
-  webUrl: string;
+  namespace: string | null;
+  description: string | null;
   defaultBranch: string | null;
+  visibility: string | null;
+  webUrl: string | null;
+  lastActivityAt: string | null;
+  lastSeenAt: string;
+  connectedProjectUid: string | null;
+  connectedProjectName: string | null;
+}
+
+/** Отчёт о ручном/авто-discovery от backend. */
+export interface DiscoveryReport {
+  connectionUid: string;
+  durationMs: number;
+  projectsSeen: number;
+  gitlabUsersUpserted: number;
+  projectMembershipsUpserted: number;
+  staleEntriesRemoved: number;
+}
+
+/** Запись реестра GitLab-участников (`gitlab_users`). */
+export interface GitlabUserRegistryItem {
+  uid: string;
+  gitlabConnectionUid: string;
+  gitlabConnectionName: string | null;
+  gitlabUserId: number;
+  gitlabUsername: string;
+  name: string;
+  email: string | null;
+  avatarUrl: string | null;
+  state: string | null;
+  webUrl: string | null;
+  isProvisioned: boolean;
+  mappedUserUid: string | null;
+  mappedUserMail: string | null;
+  mappedUserName: string | null;
+  lastSeenAt: string;
+}
+
+/** Запись результата provisioning одного GitLab-пользователя. */
+export interface ProvisionedUserRecord {
+  gitlabUserUid: string;
+  gitlabUsername: string;
+  userUid: string;
+  mail: string;
+  firstName: string;
+  secondName: string;
+  /** Plaintext-пароль возвращается ОДИН раз и только для созданных аккаунтов. */
+  temporaryPassword?: string;
+  status: 'created' | 'reused' | 'skipped';
+  reason?: string;
+}
+
+export interface ProvisionReport {
+  attempted: number;
+  created: number;
+  reused: number;
+  skipped: number;
+  records: ProvisionedUserRecord[];
+}
+
+/** Результат POST /admin/projects (подключение проекта из пула). */
+export interface ConnectProjectResult {
+  project: AdminProject;
+  provisioning: ProvisionReport;
 }
 
 export interface AdminProject {
   uid: string;
+  gitlabConnectionUid: string;
   gitlabProjectId: number;
-  connectionUid: string;
   name: string;
-  nameWithNamespace: string;
-  webUrl: string;
-  tagPattern: string | null;
+  namespace: string | null;
+  description: string | null;
+  defaultBranch: string | null;
+  releaseTagPattern: string;
   hotfixLabels: string[];
   revertLabels: string[];
-  syncedAt: string | null;
   createdAt: string;
+  updatedAt: string;
+  lastSyncAt: string | null;
+  teams: { uid: string; name: string }[];
 }
 
 export interface AdminTeam {
@@ -249,11 +404,33 @@ export interface AdminTeam {
 
 export interface AdminTeamMember {
   uid: string;
-  userId: string;
+  userUid: string;
   firstName: string;
   secondName: string;
   mail: string;
   role: 'DEVELOPER' | 'LEAD';
+  joinedAt: string;
+}
+
+export interface TeamProjectLink {
+  uid: string;
+  name: string;
+  namespace: string | null;
+  defaultBranch: string | null;
+}
+
+export interface TeamGitlabCandidate {
+  gitlabUsername: string;
+  commitsCount: number;
+  mrsCount: number;
+  reviewsCount: number;
+  mappedUser: {
+    uid: string;
+    firstName: string;
+    secondName: string;
+    mail: string;
+  } | null;
+  alreadyInTeam: boolean;
 }
 
 export interface AdminDepartment {

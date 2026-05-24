@@ -19,6 +19,9 @@ router.delete('/:uid', TeamsController.deleteTeam);
 
 // Members
 router.get('/:uid/members', TeamsController.listMembers);
+// Кандидаты из синхронизированных GitLab-данных (commits/MRs/reviews проектов команды).
+// MUST идти ДО `/:uid/members/:memberUid`, иначе express матчит «candidates» как memberUid.
+router.get('/:uid/members/candidates', TeamsController.listCandidatesFromGitlab);
 router.post('/:uid/members', TeamsController.addMember);
 router.patch('/:uid/members/:memberUid', TeamsController.updateMember);
 router.delete('/:uid/members/:memberUid', TeamsController.removeMember);

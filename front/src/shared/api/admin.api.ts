@@ -7,9 +7,15 @@ import type {
   AdminUserDetail,
   ApiResponse,
   AuditLogPage,
+  AvailableProject,
+  ConnectProjectResult,
+  DiscoveryReport,
   GitlabConnection,
-  GitlabProject,
+  GitlabUserRegistryItem,
+  ProvisionReport,
   SyncStatus,
+  TeamGitlabCandidate,
+  TeamProjectLink,
   UserRoleStats
 } from '@shared/types';
 
@@ -56,9 +62,21 @@ export const adminGitlabApi = {
     return res.data.message;
   },
 
-  fetchAvailableProjects: async (uid: string): Promise<GitlabProject[]> => {
-    const res = await api.get<ApiResponse<GitlabProject[]>>(
+  /**
+   * Пул проектов discovery (snapshot из БД, не дёргает GitLab).
+   * Чтобы обновить — вызвать `triggerDiscovery`.
+   */
+  listAvailableProjects: async (uid: string): Promise<AvailableProject[]> => {
+    const res = await api.get<ApiResponse<AvailableProject[]>>(
       `/admin/gitlab/connections/${uid}/available-projects`
+    );
+    return res.data.message;
+  },
+
+  /** Ручной discovery — обходит GitLab по токену и обновляет пул проектов + участников. */
+  triggerDiscovery: async (uid: string): Promise<DiscoveryReport> => {
+    const res = await api.post<ApiResponse<DiscoveryReport>>(
+      `/admin/gitlab/connections/${uid}/discover`
     );
     return res.data.message;
   }
@@ -74,15 +92,18 @@ export const adminProjectsApi = {
     return res.data.message;
   },
 
+  /**
+   * Подключение проекта из пула discovery. Возвращает созданный проект
+   * + provisioning-отчёт с временными паролями новых юзеров (показывать
+   * ОДИН раз, после reload их уже не получить).
+   */
   connectProject: async (dto: {
-    connectionUid: string;
-    gitlabProjectId: number;
-    name: string;
-    nameWithNamespace?: string;
-    webUrl?: string;
-    tagPattern?: string;
-  }): Promise<AdminProject> => {
-    const res = await api.post<ApiResponse<AdminProject>>('/admin/projects', dto);
+    availableProjectUid: string;
+    releaseTagPattern?: string;
+    hotfixLabels?: string[];
+    revertLabels?: string[];
+  }): Promise<ConnectProjectResult> => {
+    const res = await api.post<ApiResponse<ConnectProjectResult>>('/admin/projects', dto);
     return res.data.message;
   },
 
@@ -92,6 +113,23 @@ export const adminProjectsApi = {
 
   triggerResync: async (uid: string): Promise<void> => {
     await api.post(`/admin/projects/${uid}/resync`);
+  },
+
+  /**
+   * Полная замена набора привязанных команд. `teamUids: []` отвяжет все.
+   * Поддерживает и обновление других полей (releaseTagPattern и т.п.).
+   */
+  updateProject: async (
+    uid: string,
+    dto: {
+      teamUids?: string[];
+      releaseTagPattern?: string;
+      hotfixLabels?: string[];
+      revertLabels?: string[];
+    }
+  ): Promise<AdminProject> => {
+    const res = await api.patch<ApiResponse<AdminProject>>(`/admin/projects/${uid}`, dto);
+    return res.data.message;
   }
 };
 
@@ -144,6 +182,80 @@ export const adminTeamsApi = {
 
   removeMember: async (teamUid: string, memberUid: string): Promise<void> => {
     await api.delete(`/admin/teams/${teamUid}/members/${memberUid}`);
+  },
+
+  updateMemberRole: async (
+    teamUid: string,
+    memberUid: string,
+    role: 'DEVELOPER' | 'LEAD'
+  ): Promise<AdminTeamMember> => {
+    const res = await api.patch<ApiResponse<AdminTeamMember>>(
+      `/admin/teams/${teamUid}/members/${memberUid}`,
+      { role }
+    );
+    return res.data.message;
+  },
+
+  listCandidatesFromGitlab: async (teamUid: string): Promise<TeamGitlabCandidate[]> => {
+    const res = await api.get<ApiResponse<TeamGitlabCandidate[]>>(
+      `/admin/teams/${teamUid}/members/candidates`
+    );
+    return res.data.message;
+  },
+
+  // ---- Project attachment (per-team) ----
+
+  listTeamProjects: async (teamUid: string): Promise<TeamProjectLink[]> => {
+    const res = await api.get<ApiResponse<TeamProjectLink[]>>(
+      `/admin/teams/${teamUid}/projects`
+    );
+    return res.data.message;
+  },
+
+  attachProject: async (teamUid: string, projectUid: string): Promise<void> => {
+    await api.post(`/admin/teams/${teamUid}/projects`, { projectUid });
+  },
+
+  detachProject: async (teamUid: string, projectUid: string): Promise<void> => {
+    await api.delete(`/admin/teams/${teamUid}/projects/${projectUid}`);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// GitLab users (реестр participants по всем connections + provisioning)
+// ---------------------------------------------------------------------------
+
+export const adminGitlabUsersApi = {
+  list: async (params?: {
+    connectionUid?: string;
+    projectUid?: string;
+    search?: string;
+    provisioned?: 'true' | 'false';
+    limit?: number;
+    offset?: number;
+  }): Promise<{ items: GitlabUserRegistryItem[]; total: number }> => {
+    const res = await api.get<ApiResponse<{ items: GitlabUserRegistryItem[]; total: number }>>(
+      '/admin/gitlab-users',
+      { params }
+    );
+    return res.data.message;
+  },
+
+  /** Создать CherryGit-аккаунт для одного GitLab-пользователя. */
+  provisionOne: async (gitlabUserUid: string): Promise<ProvisionReport> => {
+    const res = await api.post<ApiResponse<ProvisionReport>>(
+      `/admin/gitlab-users/${gitlabUserUid}/provision`
+    );
+    return res.data.message;
+  },
+
+  /** Bulk-provisioning по списку UID. */
+  provisionBulk: async (gitlabUserUids: string[]): Promise<ProvisionReport> => {
+    const res = await api.post<ApiResponse<ProvisionReport>>(
+      '/admin/gitlab-users/provision/bulk',
+      { gitlabUserUids }
+    );
+    return res.data.message;
   }
 };
 

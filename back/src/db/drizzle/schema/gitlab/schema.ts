@@ -1,4 +1,4 @@
-import { integer, jsonb, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+import { boolean, integer, jsonb, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
 
 import type { GitLabConnectionStatus } from './types/gitlab-connection-status.type';
 import type { RawPayloadType } from './types/raw-payload-type.type';
@@ -204,3 +204,138 @@ export const gitlabRawPayloads = pgTable('gitlab_raw_payloads', {
 
 export type InsertGitlabRawPayload = typeof gitlabRawPayloads.$inferInsert;
 export type SelectGitlabRawPayload = typeof gitlabRawPayloads.$inferSelect;
+
+/**
+ * Пул проектов, найденных через discovery (по токену администратора).
+ *
+ * Заполняется автоматически при подключении/обновлении gitlab_connection:
+ *  GET /projects?membership=true → upsert каждой строки.
+ * Из этого пула администратор выбирает, какие проекты подключить через
+ * `POST /admin/projects/connect` — тогда создаётся запись в `projects`
+ * и `connected_project_uid` указывает на неё.
+ *
+ * Зачем отдельная таблица, а не флаг в `projects`:
+ *  — большая часть проектов с GitLab-инстанса админу неинтересна;
+ *    держать их в `projects` (с sync_statuses, code_modules, attached teams)
+ *    запутывает листинги и навешивает фантомные синки;
+ *  — список «доступных проектов» — это snapshot GitLab на момент discovery,
+ *    он перезаписывается на каждом refresh; `projects` — это «зафиксированное»
+ *    подключение, его lifecycle отдельный.
+ */
+export const gitlabAvailableProjects = pgTable(
+  'gitlab_available_projects',
+  {
+    ...baseSchema,
+    gitlabConnectionUid: uuid('gitlab_connection_uid')
+      .references(() => gitlabConnections.uid)
+      .notNull(),
+    gitlabProjectId: integer('gitlab_project_id').notNull(),
+    name: text('name').notNull(),
+    /** group/subgroup (full_path namespace), для отображения в UI */
+    namespace: text('namespace'),
+    description: text('description'),
+    defaultBranch: text('default_branch'),
+    visibility: text('visibility'),
+    webUrl: text('web_url'),
+    lastActivityAt: timestamp('last_activity_at'),
+    /**
+     * Если проект уже подключён к CherryGit — указывает на projects.uid.
+     * null = ещё в пуле, не подключён. На каждом discovery обновляется
+     * (если запись в projects удалили — обнуляем).
+     */
+    connectedProjectUid: uuid('connected_project_uid'),
+    /** Когда discovery последний раз увидел этот проект в /projects?membership */
+    lastSeenAt: timestamp('last_seen_at').defaultNow().notNull()
+  },
+  (t) => ({
+    uniqueProjectPerConnection: unique('uq_available_project_per_connection').on(
+      t.gitlabConnectionUid,
+      t.gitlabProjectId
+    )
+  })
+);
+
+export type InsertGitlabAvailableProject = typeof gitlabAvailableProjects.$inferInsert;
+export type SelectGitlabAvailableProject = typeof gitlabAvailableProjects.$inferSelect;
+
+/**
+ * Реестр всех GitLab-пользователей, увиденных при discovery (per-connection).
+ *
+ * Заполняется на двух шагах:
+ *  1. При discovery соединения — обходим все доступные проекты, у каждого
+ *     запрашиваем members → upsert.
+ *  2. При connectProject — повторно подтягиваем members подключаемого проекта,
+ *     чтобы гарантировать актуальность (между discovery и connect могли
+ *     добавить новых).
+ *
+ * `mapped_user_uid` — связь с CherryGit-юзером, создаётся при provisioning
+ * (см. provisioning.service). Один gitlab_user привязан максимум к одному
+ * users.uid (DEVELOPER в системе). Это same сущность как
+ * `user_gitlab_identities`, но в обратную сторону: identities = «у CherryGit
+ * юзера есть такие GL-аккаунты», gitlab_users = «у GL есть такие люди,
+ * замапили в такого CherryGit-юзера». Обе таблицы пишутся одновременно.
+ *
+ * isProvisioned — кэш-флаг (= mapped_user_uid IS NOT NULL); упрощает фильтры
+ * в admin-UI без дополнительного JOIN.
+ */
+export const gitlabUsers = pgTable(
+  'gitlab_users',
+  {
+    ...baseSchema,
+    gitlabConnectionUid: uuid('gitlab_connection_uid')
+      .references(() => gitlabConnections.uid)
+      .notNull(),
+    gitlabUserId: integer('gitlab_user_id').notNull(),
+    gitlabUsername: text('gitlab_username').notNull(),
+    name: text('name').notNull(),
+    /** public_email из GitLab. Может отсутствовать (private profile) */
+    email: text('email'),
+    avatarUrl: text('avatar_url'),
+    state: text('state'),
+    webUrl: text('web_url'),
+    /** users.uid после провижининга. null = аккаунт ещё не создан */
+    mappedUserUid: uuid('mapped_user_uid'),
+    isProvisioned: boolean('is_provisioned').default(false).notNull(),
+    lastSeenAt: timestamp('last_seen_at').defaultNow().notNull()
+  },
+  (t) => ({
+    uniqueUserPerConnection: unique('uq_gitlab_user_per_connection').on(
+      t.gitlabConnectionUid,
+      t.gitlabUserId
+    )
+  })
+);
+
+export type InsertGitlabUser = typeof gitlabUsers.$inferInsert;
+export type SelectGitlabUser = typeof gitlabUsers.$inferSelect;
+
+/**
+ * Связь проекта с найденными GitLab-участниками (many-to-many).
+ * Используется чтобы:
+ *  — при подключении проекта подтянуть всех его участников в admin-UI;
+ *  — при provisioning знать, в каких подключённых проектах юзер фигурирует
+ *    (для авто-назначения команд админу как подсказка).
+ *
+ * Здесь нет уникальности access_level — это сам атрибут связи (Developer/
+ * Maintainer/Owner — GitLab access_level: 10/20/30/40/50).
+ */
+export const projectGitlabUsers = pgTable(
+  'project_gitlab_users',
+  {
+    ...baseSchema,
+    projectUid: uuid('project_uid')
+      .references(() => projects.uid)
+      .notNull(),
+    gitlabUserUid: uuid('gitlab_user_uid')
+      .references(() => gitlabUsers.uid)
+      .notNull(),
+    accessLevel: integer('access_level').default(30).notNull(),
+    lastSeenAt: timestamp('last_seen_at').defaultNow().notNull()
+  },
+  (t) => ({
+    uniqueProjectMember: unique('uq_project_gitlab_user').on(t.projectUid, t.gitlabUserUid)
+  })
+);
+
+export type InsertProjectGitlabUser = typeof projectGitlabUsers.$inferInsert;
+export type SelectProjectGitlabUser = typeof projectGitlabUsers.$inferSelect;

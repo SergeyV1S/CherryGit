@@ -1,7 +1,10 @@
 import type {
   ApiResponse,
   TeamBusFactorReport,
+  TeamChangeFailureRateReport,
   TeamCycleTimeMrReport,
+  TeamDeploymentFrequencyReport,
+  TeamLeadTimeReport,
   TeamListItem,
   TeamMrSizeReport
 } from '@shared/types';
@@ -49,6 +52,58 @@ export const teamsApi = {
     const res = await api.get<ApiResponse<TeamBusFactorReport>>(`/teams/${teamUid}/bus-factor`, {
       params: { windowDays }
     });
+    return res.data.message;
+  },
+
+  getLeadTime: async (
+    teamUid: string,
+    periodStart: Date,
+    periodEnd: Date
+  ): Promise<TeamLeadTimeReport> => {
+    const res = await api.get<ApiResponse<TeamLeadTimeReport>>(`/teams/${teamUid}/lead-time`, {
+      params: {
+        periodStart: periodStart.toISOString(),
+        periodEnd: periodEnd.toISOString()
+      }
+    });
+    return res.data.message;
+  },
+
+  getDeploymentFrequency: async (
+    teamUid: string,
+    periodStart: Date,
+    periodEnd: Date,
+    granularity: 'day' | 'week' | 'month' = 'week'
+  ): Promise<TeamDeploymentFrequencyReport> => {
+    const res = await api.get<ApiResponse<TeamDeploymentFrequencyReport>>(
+      `/teams/${teamUid}/deployment-frequency`,
+      {
+        params: {
+          periodStart: periodStart.toISOString(),
+          periodEnd: periodEnd.toISOString(),
+          granularity
+        }
+      }
+    );
+    return res.data.message;
+  },
+
+  getChangeFailureRate: async (
+    teamUid: string,
+    periodStart: Date,
+    periodEnd: Date,
+    granularity: 'day' | 'week' | 'month' = 'week'
+  ): Promise<TeamChangeFailureRateReport> => {
+    const res = await api.get<ApiResponse<TeamChangeFailureRateReport>>(
+      `/teams/${teamUid}/change-failure-rate`,
+      {
+        params: {
+          periodStart: periodStart.toISOString(),
+          periodEnd: periodEnd.toISOString(),
+          granularity
+        }
+      }
+    );
     return res.data.message;
   }
 };

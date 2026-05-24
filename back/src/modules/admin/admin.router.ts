@@ -7,6 +7,7 @@ import projectsAdminRouter from '../projects/projects.admin.routes';
 import snapshotAdminRouter from '../snapshots/snapshot.admin.routes';
 import syncAdminRouter from '../sync/sync.admin.routes';
 import teamsAdminRouter from '../teams/teams.admin.routes';
+import gitlabUsersAdminRouter from '../users-admin/gitlab-users.routes';
 import usersAdminRouter from '../users-admin/users-admin.routes';
 
 /**
@@ -16,6 +17,8 @@ import usersAdminRouter from '../users-admin/users-admin.routes';
 const router = Router();
 
 router.use('/gitlab', gitlabAdminRouter);
+/** Реестр GitLab-участников + ручной provisioning (новый флоу). */
+router.use('/gitlab-users', gitlabUsersAdminRouter);
 router.use('/projects', projectsAdminRouter);
 router.use('/teams', teamsAdminRouter);
 // /api/admin/teams/:teamUid/snapshots/recalculate (доработка 2.7).

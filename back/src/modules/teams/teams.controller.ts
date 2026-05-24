@@ -101,6 +101,19 @@ export async function listMembers(req: Request, res: Response, next: NextFunctio
   }
 }
 
+export async function listCandidatesFromGitlab(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const result = await TeamsService.listCandidatesFromGitlab(param(req, 'uid'));
+    sendResponse(res, HttpStatus.OK, result);
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function addMember(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const dto = addTeamMemberSchema.parse(req.body);

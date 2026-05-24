@@ -15,6 +15,7 @@ const DashboardRedirect = lazy(() => import('@pages/dashboard'));
 
 // Developer
 const MePage = lazy(() => import('@pages/me'));
+const MeHistoryPage = lazy(() => import('@pages/me/history'));
 
 // Lead
 const TeamsPage = lazy(() => import('@pages/teams'));
@@ -25,6 +26,7 @@ const DepartmentTrendPage = lazy(() => import('@pages/department/trend'));
 
 // Admin
 const AdminUsersPage = lazy(() => import('@pages/admin/users'));
+const AdminGitlabUsersPage = lazy(() => import('@pages/admin/gitlab-users'));
 const AdminTeamsPage = lazy(() => import('@pages/admin/teams'));
 const AdminDepartmentsPage = lazy(() => import('@pages/admin/departments'));
 const AdminGitlabPage = lazy(() => import('@pages/admin/gitlab'));
@@ -55,6 +57,7 @@ export const router = createBrowserRouter([
 
           // Developer dashboard
           createRoute(ROUTES.developer.root, <MePage />),
+          createRoute(ROUTES.developer.history, <MeHistoryPage />),
 
           // Lead dashboard
           createRoute('/teams', <TeamsPage />),
@@ -72,6 +75,7 @@ export const router = createBrowserRouter([
             element: <ProtectedRoute roles={['ADMIN']} />,
             children: [
               createRoute(ROUTES.admin.users, <AdminUsersPage />),
+              createRoute(ROUTES.admin.gitlabUsers, <AdminGitlabUsersPage />),
               createRoute(ROUTES.admin.teams, <AdminTeamsPage />),
               createRoute(ROUTES.admin.departments, <AdminDepartmentsPage />),
               createRoute(ROUTES.admin.gitlab, <AdminGitlabPage />),

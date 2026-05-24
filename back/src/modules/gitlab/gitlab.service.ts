@@ -1,7 +1,11 @@
-import { eq } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 
 import { db } from '@/db/drizzle/connect';
-import { gitlabConnections } from '@/db/drizzle/schema/gitlab/schema';
+import {
+  gitlabAvailableProjects,
+  gitlabConnections,
+  projects
+} from '@/db/drizzle/schema/gitlab/schema';
 import { decryptSecret, encryptSecret } from '@/lib/encryption';
 import { logger } from '@/lib/loger';
 import { recordAuditLog } from '@/modules/audit/audit.service';
@@ -13,6 +17,7 @@ import type {
   UpdateGitlabConnectionDto
 } from './dto/create-connection.dto';
 
+import { runDiscovery } from './discovery.service';
 import { GitlabClient } from './gitlab-client.service';
 
 /** Поля подключения, которые можно отдавать наружу (БЕЗ encryptedToken). */
@@ -78,6 +83,15 @@ export const createConnection = async (ownerUid: string, dto: CreateGitlabConnec
     entityType: 'gitlab_connection',
     entityId: created.uid,
     details: { name: created.name, baseUrl: created.baseUrl }
+  });
+
+  // Discovery запускаем fire-and-forget — пользователь сразу получает ответ
+  // о создании connection. Через несколько секунд UI повторно фетчит пул
+  // (POST /discover для ручного refresh, или GET available-projects).
+  void runDiscovery(ownerUid, created.uid).catch((err: Error) => {
+    logger.warn(
+      `initial discovery for connection ${created.uid} failed: ${err.message}`
+    );
   });
 
   return created;
@@ -179,31 +193,52 @@ export const testConnection = async (uid: string) => {
 };
 
 /**
- * Получить список доступных проектов с GitLab-инстанса (UC-01 шаг 6).
- * Расшифровывает токен и обращается к GET /projects?membership=true.
+ * Список «доступных» проектов из пула discovery
+ * (`gitlab_available_projects`). Не обращается к GitLab — отдаёт
+ * последний snapshot. Чтобы обновить список — вызывать
+ * `POST /admin/gitlab/connections/:uid/discover`.
+ *
+ * Каждой записи сопутствует `connectedProjectUid` (null = ещё не подключён),
+ * чтобы UI рисовал «✓ Подключён» против уже добавленных.
  */
-export const fetchAvailableProjects = async (connectionUid: string) => {
-  const client = await buildClient(connectionUid);
-  try {
-    const projects = await client.fetchProjects();
-    await markConnectionChecked(connectionUid, 'active');
-    return projects.map((p) => ({
-      gitlabProjectId: p.id,
-      name: p.name,
-      path: p.path,
-      pathWithNamespace: p.path_with_namespace ?? `${p.namespace.full_path}/${p.path}`,
-      namespace: p.namespace.full_path,
-      description: p.description,
-      defaultBranch: p.default_branch,
-      visibility: p.visibility,
-      webUrl: p.web_url,
-      lastActivityAt: p.last_activity_at
-    }));
-  } catch (error) {
-    await markConnectionChecked(connectionUid, 'error');
-    throw error;
+export const listAvailableProjects = async (connectionUid: string) => {
+  // Sanity check: пусть упадёт 404 если connection не существует.
+  const [conn] = await db
+    .select({ uid: gitlabConnections.uid })
+    .from(gitlabConnections)
+    .where(eq(gitlabConnections.uid, connectionUid));
+  if (!conn) {
+    throw new CustomError(HttpStatus.NOT_FOUND, 'GitLab connection not found');
   }
+
+  return db
+    .select({
+      uid: gitlabAvailableProjects.uid,
+      gitlabProjectId: gitlabAvailableProjects.gitlabProjectId,
+      name: gitlabAvailableProjects.name,
+      namespace: gitlabAvailableProjects.namespace,
+      description: gitlabAvailableProjects.description,
+      defaultBranch: gitlabAvailableProjects.defaultBranch,
+      visibility: gitlabAvailableProjects.visibility,
+      webUrl: gitlabAvailableProjects.webUrl,
+      lastActivityAt: gitlabAvailableProjects.lastActivityAt,
+      lastSeenAt: gitlabAvailableProjects.lastSeenAt,
+      connectedProjectUid: gitlabAvailableProjects.connectedProjectUid,
+      connectedProjectName: projects.name
+    })
+    .from(gitlabAvailableProjects)
+    .leftJoin(projects, eq(projects.uid, gitlabAvailableProjects.connectedProjectUid))
+    .where(eq(gitlabAvailableProjects.gitlabConnectionUid, connectionUid))
+    .orderBy(asc(gitlabAvailableProjects.namespace), asc(gitlabAvailableProjects.name));
 };
+
+/**
+ * Ручной discover-trigger (UI-кнопка «Обновить список»). Делегирует в
+ * discovery.service.runDiscovery; синхронно дожидается результата чтобы
+ * вернуть отчёт админу.
+ */
+export const triggerDiscovery = async (actorUid: string, connectionUid: string) =>
+  runDiscovery(actorUid, connectionUid);
 
 /**
  * Построить GitlabClient для существующего connection (расшифровка токена).

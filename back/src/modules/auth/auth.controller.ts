@@ -9,25 +9,19 @@ import type { LoginUserDto } from './dto/login.dto';
 
 import * as authService from './auth.service';
 
+/**
+ * Открытая регистрация отключена в новом флоу (пользователи появляются
+ * через provisioning при подключении проекта администратором).
+ * Контроллер всегда вызывает `authService.register`, который бросает 403 —
+ * cookie/sendResponse не достигаются.
+ */
 export async function register(
   req: Request<object, object, CreateUserDto>,
-  res: Response,
+  _res: Response,
   next: NextFunction
 ): Promise<void> {
   try {
-    const data = await authService.register(req.body);
-
-    res.cookie(`${config.app.name}-access-token`, data.token, {
-      expires: new Date(Date.now() + 5 * 60 * 1000),
-      httpOnly: true
-    });
-
-    res.cookie(`${config.app.name}-refresh-token`, data.refresh, {
-      expires: new Date(Date.now() + 30 * 60 * 60 * 1000),
-      httpOnly: true
-    });
-
-    sendResponse(res, HttpStatus.CREATED, data.data);
+    await authService.register(req.body);
   } catch (error) {
     next(error);
   }

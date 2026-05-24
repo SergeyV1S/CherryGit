@@ -46,6 +46,23 @@ export async function getCurrentUser(
   }
 }
 
+/**
+ * Статус доступа к функционалу — гейт для UI: показать дашборд или баннер
+ * «обратитесь к администратору». См. MeService.getMyAccess.
+ */
+export async function getMyAccess(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const result = await MeService.getMyAccess(req.user!.uid);
+    sendResponse(res, HttpStatus.OK, result);
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function getMyMetrics(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { periodStart, periodEnd } = parsePeriod(req);

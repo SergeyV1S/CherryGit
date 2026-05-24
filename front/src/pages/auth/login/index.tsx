@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Link, useNavigate } from 'react-router';
+import { useNavigate } from 'react-router';
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Eye, EyeSlash, GitBranch, Warning } from '@phosphor-icons/react';
@@ -8,7 +8,7 @@ import { z } from 'zod';
 
 import { ROUTES } from '@shared/constants';
 import { useAuth } from '@shared/hooks';
-import { Alert, AlertDescription, Button, Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle, Input, Label } from '@shared/ui';
+import { Alert, AlertDescription, Button, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Label } from '@shared/ui';
 
 const loginSchema = z.object({
   mail: z.string().email('Введите корректный email'),
@@ -116,16 +116,11 @@ export default function LoginPage() {
                 {isSubmitting ? 'Вход...' : 'Войти'}
               </Button>
             </form>
-          </CardContent>
 
-          <CardFooter className='justify-center'>
-            <p className='text-muted-foreground text-sm'>
-              Нет аккаунта?{' '}
-              <Link to={ROUTES.register} className='text-primary hover:underline'>
-                Зарегистрироваться
-              </Link>
+            <p className='text-muted-foreground mt-4 text-center text-xs'>
+              Аккаунты создаются автоматически администратором при подключении проекта.
             </p>
-          </CardFooter>
+          </CardContent>
         </Card>
       </div>
     </div>

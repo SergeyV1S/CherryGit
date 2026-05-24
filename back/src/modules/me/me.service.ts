@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 import type { CycleTimeMrValue, MrSizeValue } from '@/db/drizzle/schema/metrics/schema';
 import type { AuthorFilter } from '@/modules/metrics/lib/compute-team';
@@ -47,7 +47,9 @@ export const getCurrentUser = async (userUid: string) => {
       secondName: users.secondName,
       mail: users.mail,
       role: users.role,
-      departmentUid: users.departmentUid
+      departmentUid: users.departmentUid,
+      provisionedAt: users.provisionedAt,
+      isTempPassword: users.isTempPassword
     })
     .from(users)
     .where(eq(users.uid, userUid));
@@ -82,6 +84,127 @@ export const getCurrentUser = async (userUid: string) => {
     teams: memberships,
     gitlabIdentities: identities
   };
+};
+
+// ===========================================================================
+// Access-state (гейтинг дашбордов на фронте)
+// ===========================================================================
+
+export type MeAccessStatus =
+  | 'pending_assignment'
+  | 'pending_provision'
+  | 'ready'
+  | 'temp_password';
+
+export interface MeAccessReport {
+  /** true, если у пользователя установлен departmentUid (для HEAD). */
+  hasDepartment: boolean;
+  /** true, если пользователь ещё ходит с временным паролем (UI: «смените пароль»). */
+  isTempPassword: boolean;
+  /** Сообщение для UI-баннера; пустая строка если status='ready'. */
+  message: string;
+  provisionedAt: Date | null;
+  role: string;
+  status: MeAccessStatus;
+  /** Сколько команд назначено пользователю (или 0). */
+  teamsCount: number;
+  uid: string;
+}
+
+/**
+ * Статус доступа текущего пользователя к функционалу.
+ *
+ * Используется фронтом для решения: показать дашборд или баннер «вас ещё
+ * не назначили в команду, обратитесь к администратору».
+ *
+ * Семантика по ролям:
+ *   ADMIN     → всегда 'ready' (админка не зависит от команд).
+ *   DEVELOPER → 'ready' если состоит хотя бы в одной команде; иначе
+ *               'pending_assignment'.
+ *   LEAD      → 'ready' если состоит хотя бы в одной команде в роли LEAD;
+ *               иначе 'pending_assignment' (per-team роль выдаст команда).
+ *   HEAD      → 'ready' если у юзера есть departmentUid; иначе
+ *               'pending_assignment'.
+ *
+ * Дополнительно, для всех ролей:
+ *   - если provisionedAt IS NULL → 'pending_provision' (теоретически
+ *     не должно случаться, т.к. auth-гейт не пускает таких; но guard
+ *     для consistency);
+ *   - если isTempPassword=true → 'temp_password' (UI должен показать
+ *     модал «смените пароль», но доступ есть).
+ */
+export const getMyAccess = async (userUid: string): Promise<MeAccessReport> => {
+  const [user] = await db
+    .select({
+      uid: users.uid,
+      role: users.role,
+      departmentUid: users.departmentUid,
+      provisionedAt: users.provisionedAt,
+      isTempPassword: users.isTempPassword
+    })
+    .from(users)
+    .where(eq(users.uid, userUid));
+  if (!user) {
+    throw new CustomError(HttpStatus.NOT_FOUND, 'User not found');
+  }
+
+  const [{ count: teamsCount }] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(teamMembers)
+    .where(eq(teamMembers.userUid, userUid));
+
+  const hasDepartment = Boolean(user.departmentUid);
+  const base: Omit<MeAccessReport, 'message' | 'status'> = {
+    uid: user.uid,
+    role: user.role,
+    teamsCount: Number(teamsCount),
+    hasDepartment,
+    isTempPassword: user.isTempPassword,
+    provisionedAt: user.provisionedAt
+  };
+
+  if (user.role === 'ADMIN') {
+    return {
+      ...base,
+      status: user.isTempPassword ? 'temp_password' : 'ready',
+      message: user.isTempPassword ? 'Смените временный пароль в настройках профиля' : ''
+    };
+  }
+
+  if (!user.provisionedAt) {
+    return {
+      ...base,
+      status: 'pending_provision',
+      message:
+        'Ваш аккаунт ещё не активирован. Подождите, пока администратор подключит проект.'
+    };
+  }
+
+  if (user.role === 'HEAD') {
+    if (!hasDepartment) {
+      return {
+        ...base,
+        status: 'pending_assignment',
+        message: 'Администратор ещё не назначил вас в отдел.'
+      };
+    }
+  } else if (Number(teamsCount) === 0) {
+    return {
+      ...base,
+      status: 'pending_assignment',
+      message: 'Администратор ещё не добавил вас ни в одну команду.'
+    };
+  }
+
+  if (user.isTempPassword) {
+    return {
+      ...base,
+      status: 'temp_password',
+      message: 'Смените временный пароль в настройках профиля'
+    };
+  }
+
+  return { ...base, status: 'ready', message: '' };
 };
 
 // ===========================================================================

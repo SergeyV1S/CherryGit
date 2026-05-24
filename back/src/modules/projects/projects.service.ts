@@ -1,12 +1,19 @@
 import { eq, inArray } from 'drizzle-orm';
 
 import { db } from '@/db/drizzle/connect';
-import { gitlabConnections, projects, syncStatuses } from '@/db/drizzle/schema/gitlab/schema';
+import {
+  gitlabAvailableProjects,
+  gitlabConnections,
+  projects,
+  syncStatuses
+} from '@/db/drizzle/schema/gitlab/schema';
 import { teamProjects, teams } from '@/db/drizzle/schema/teams/schema';
 import { logger } from '@/lib/loger';
 import { recordAuditLog } from '@/modules/audit/audit.service';
+import { runDiscovery } from '@/modules/gitlab/discovery.service';
 import { buildClient } from '@/modules/gitlab/gitlab.service';
 import * as SyncService from '@/modules/sync/sync.service';
+import * as ProvisioningService from '@/modules/users-admin/provisioning.service';
 import { CustomError } from '@/utils/custom_error';
 import { HttpStatus } from '@/utils/enums/http-status';
 
@@ -35,29 +42,59 @@ import type {
 /** Код PostgreSQL для нарушения unique constraint. */
 const PG_UNIQUE_VIOLATION = '23505';
 
-/** Список проектов с привязанными командами (агрегация). */
+/** Список проектов с привязанными командами и временем последнего sync. */
 export const listProjects = async () => {
   const rows = await db
     .select({
       project: projects,
-      team: teams
+      team: teams,
+      lastSyncAt: syncStatuses.lastSyncAt
     })
     .from(projects)
     .leftJoin(teamProjects, eq(teamProjects.projectUid, projects.uid))
-    .leftJoin(teams, eq(teams.uid, teamProjects.teamUid));
+    .leftJoin(teams, eq(teams.uid, teamProjects.teamUid))
+    .leftJoin(syncStatuses, eq(syncStatuses.projectUid, projects.uid));
 
-  // Сворачиваем строки в `project + teams[]` (group by project.uid).
-  const grouped = new Map<
-    string,
-    { project: typeof projects.$inferSelect; teams: { uid: string; name: string }[] }
-  >();
+  interface Item {
+    createdAt: Date;
+    defaultBranch: string | null;
+    description: string | null;
+    gitlabConnectionUid: string;
+    gitlabProjectId: number;
+    hotfixLabels: string[];
+    lastSyncAt: Date | null;
+    name: string;
+    namespace: string | null;
+    releaseTagPattern: string;
+    revertLabels: string[];
+    teams: { uid: string; name: string }[];
+    uid: string;
+    updatedAt: Date;
+  }
+
+  // Сворачиваем строки в плоский объект + teams[] (group by project.uid).
+  const grouped = new Map<string, Item>();
   for (const row of rows) {
     const existing = grouped.get(row.project.uid);
     if (existing) {
-      if (row.team) existing.teams.push({ uid: row.team.uid, name: row.team.name });
+      if (row.team && !existing.teams.some((t) => t.uid === row.team!.uid)) {
+        existing.teams.push({ uid: row.team.uid, name: row.team.name });
+      }
     } else {
       grouped.set(row.project.uid, {
-        project: row.project,
+        uid: row.project.uid,
+        gitlabConnectionUid: row.project.gitlabConnectionUid,
+        gitlabProjectId: row.project.gitlabProjectId,
+        name: row.project.name,
+        namespace: row.project.namespace,
+        description: row.project.description,
+        defaultBranch: row.project.defaultBranch,
+        releaseTagPattern: row.project.releaseTagPattern,
+        hotfixLabels: row.project.hotfixLabels,
+        revertLabels: row.project.revertLabels,
+        createdAt: row.project.createdAt,
+        updatedAt: row.project.updatedAt,
+        lastSyncAt: row.lastSyncAt,
         teams: row.team ? [{ uid: row.team.uid, name: row.team.name }] : []
       });
     }
@@ -84,51 +121,78 @@ export const getProject = async (uid: string) => {
 };
 
 /**
- * Подключение проекта GitLab к CherryGit (UC-01 шаги 6–10).
+ * Подключение проекта GitLab к CherryGit (новый флоу).
+ *
+ * Принимает `availableProjectUid` — UID записи из пула discovery
+ * (`gitlab_available_projects`). Эта запись хранит `gitlab_connection_uid`
+ * и `gitlab_project_id`, поэтому клиенту не нужно передавать их отдельно.
  *
  * Алгоритм:
- *  1. Проверка существования GitLab-подключения.
- *  2. Запрос метаданных проекта с GitLab (имя, namespace, description, defaultBranch).
- *  3. Insert в projects — unique constraint ловит повторное подключение.
- *  4. Привязка к указанным командам через team_projects.
- *  5. Создание sync_statuses (status='idle').
- *  6. Запись события в журнал аудита (project.connected).
- *  7. Fire-and-forget — попытка первичного sync (бутстрап).
+ *  1. Загрузка pool-записи + её connection; 404 если пуло-запись не найдена.
+ *  2. 409, если запись уже подключена (connectedProjectUid != null).
+ *  3. Запрос актуальных метаданных проекта с GitLab (defaultBranch, имя
+ *     могли поменяться с момента discovery).
+ *  4. INSERT в `projects` + `sync_statuses` (idle) + обновление
+ *     `gitlab_available_projects.connectedProjectUid`.
+ *  5. Повторный discovery — обновляет membership этого проекта в
+ *     `project_gitlab_users` (за время с discovery в GitLab могли
+ *     добавиться/уйти участники).
+ *  6. **Синхронный provisioning** всех новых gitlab_users этого проекта —
+ *     создаются CherryGit-юзера с временными паролями. Результат
+ *     `ProvisionReport` возвращается админу в HTTP-ответе (один раз!).
+ *  7. Fire-and-forget syncProject — фоновый сбор commits/MR/tags для метрик.
+ *  8. Audit.
  */
-export const connectProject = async (actorUid: string, dto: ConnectProjectDto) => {
-  // 1. Проверка существования подключения.
+export interface ConnectProjectResult {
+  project: typeof projects.$inferSelect;
+  /**
+   * Отчёт о провижининге участников проекта.
+   * Включает plaintext-пароли (только для status='created') — UI должен
+   * показать их ОДИН раз: после reload они уже недоступны.
+   */
+  provisioning: Awaited<ReturnType<typeof ProvisioningService.provisionForProject>>;
+}
+
+export const connectProject = async (
+  actorUid: string,
+  dto: ConnectProjectDto
+): Promise<ConnectProjectResult> => {
+  // 1. Загрузка pool-записи.
+  const [available] = await db
+    .select()
+    .from(gitlabAvailableProjects)
+    .where(eq(gitlabAvailableProjects.uid, dto.availableProjectUid));
+  if (!available) {
+    throw new CustomError(
+      HttpStatus.NOT_FOUND,
+      'проект не найден в пуле discovery; запустите discovery подключения заново'
+    );
+  }
+  if (available.connectedProjectUid) {
+    throw new CustomError(HttpStatus.CONFLICT, 'этот проект уже подключён');
+  }
+
   const [connection] = await db
     .select()
     .from(gitlabConnections)
-    .where(eq(gitlabConnections.uid, dto.gitlabConnectionUid));
+    .where(eq(gitlabConnections.uid, available.gitlabConnectionUid));
   if (!connection) {
     throw new CustomError(HttpStatus.NOT_FOUND, 'GitLab connection not found');
   }
 
-  // 2. Валидация команд (если переданы — должны все существовать).
-  if (dto.teamUids && dto.teamUids.length > 0) {
-    const found = await db
-      .select({ uid: teams.uid })
-      .from(teams)
-      .where(inArray(teams.uid, dto.teamUids));
-    if (found.length !== dto.teamUids.length) {
-      throw new CustomError(HttpStatus.BAD_REQUEST, 'Одна или несколько teamUids не существуют');
-    }
-  }
+  // 2. Метаданные проекта (через client — берём актуальный default_branch и пр.).
+  const client = await buildClient(available.gitlabConnectionUid);
+  const remote = await client.fetchProject(available.gitlabProjectId);
 
-  // 3. Метаданные проекта с GitLab.
-  const client = await buildClient(dto.gitlabConnectionUid);
-  const remote = await client.fetchProject(dto.gitlabProjectId);
-
-  // 4. Транзакция: project + team_projects + sync_statuses.
+  // 3. Создание `projects` + `sync_statuses` + обновление пула.
   let created: typeof projects.$inferSelect;
   try {
     created = await db.transaction(async (tx) => {
       const [project] = await tx
         .insert(projects)
         .values({
-          gitlabConnectionUid: dto.gitlabConnectionUid,
-          gitlabProjectId: dto.gitlabProjectId,
+          gitlabConnectionUid: available.gitlabConnectionUid,
+          gitlabProjectId: available.gitlabProjectId,
           name: remote.name,
           description: remote.description,
           namespace: remote.namespace.full_path,
@@ -139,19 +203,12 @@ export const connectProject = async (actorUid: string, dto: ConnectProjectDto) =
         })
         .returning();
 
-      if (dto.teamUids && dto.teamUids.length > 0) {
-        await tx.insert(teamProjects).values(
-          dto.teamUids.map((teamUid) => ({
-            teamUid,
-            projectUid: project.uid
-          }))
-        );
-      }
+      await tx.insert(syncStatuses).values({ projectUid: project.uid, status: 'idle' });
 
-      await tx.insert(syncStatuses).values({
-        projectUid: project.uid,
-        status: 'idle'
-      });
+      await tx
+        .update(gitlabAvailableProjects)
+        .set({ connectedProjectUid: project.uid })
+        .where(eq(gitlabAvailableProjects.uid, available.uid));
 
       return project;
     });
@@ -165,32 +222,58 @@ export const connectProject = async (actorUid: string, dto: ConnectProjectDto) =
     throw error;
   }
 
-  // 5. Audit.
+  // 4. Повторный discovery — обновит project_gitlab_users этого проекта.
+  //    Делаем синхронно, иначе provisioning ниже не увидит участников.
+  try {
+    await runDiscovery(actorUid, available.gitlabConnectionUid);
+  } catch (err) {
+    logger.warn(
+      `connectProject: discovery refresh failed for connection ${available.gitlabConnectionUid}: ${(err as Error).message}`
+    );
+  }
+
+  // 5. Provisioning — синхронно. Чем быстрее админ получит ответ с
+  //    временными паролями, тем лучше; provision-цикл укладывается в
+  //    миллисекунды на проект-команду размером десятки людей.
+  let provisioning: ConnectProjectResult['provisioning'];
+  try {
+    provisioning = await ProvisioningService.provisionForProject(actorUid, created.uid);
+  } catch (err) {
+    logger.warn(
+      `connectProject: provisioning failed for project ${created.uid}: ${(err as Error).message}`
+    );
+    provisioning = { attempted: 0, created: 0, reused: 0, skipped: 0, records: [] };
+  }
+
+  // 6. Audit.
   await recordAuditLog({
     userUid: actorUid,
     action: 'project.connected',
     entityType: 'project',
     entityId: created.uid,
     details: {
-      gitlabConnectionUid: dto.gitlabConnectionUid,
-      gitlabProjectId: dto.gitlabProjectId,
+      gitlabConnectionUid: available.gitlabConnectionUid,
+      gitlabProjectId: available.gitlabProjectId,
+      availableProjectUid: available.uid,
       name: created.name,
       namespace: created.namespace,
-      teamUids: dto.teamUids ?? []
+      provisioning: {
+        attempted: provisioning.attempted,
+        created: provisioning.created,
+        reused: provisioning.reused,
+        skipped: provisioning.skipped
+      }
     }
   });
 
-  // 6. Бутстрап-задача: запускаем первичный sync в фоне.
-  // Когда модуль sync будет реализован (доработка 1.3) — это автоматически
-  // загрузит коммиты/MR/теги проекта. До тех пор вызов вернёт 501 и
-  // мы лишь логируем warning, не ломая операцию подключения.
+  // 7. Бутстрап-задача: запускаем первичный sync в фоне.
   void SyncService.syncProject(actorUid, created.uid).catch((err: Error) => {
     logger.warn(
       `Initial sync skipped for project ${created.uid} (${remote.path_with_namespace}): ${err.message}`
     );
   });
 
-  return created;
+  return { project: created, provisioning };
 };
 
 /**
@@ -257,8 +340,11 @@ export const updateProject = async (uid: string, dto: UpdateProjectDto, actorUid
 };
 
 /**
- * Отключение проекта от системы. Снимает связи с командами и удаляет
- * запись sync_statuses; связанные commits/merge_requests/deployments
+ * Отключение проекта от системы. Снимает связи с командами, удаляет
+ * запись sync_statuses и снимает флаг connectedProjectUid в пуле discovery
+ * (после этого pool-запись снова доступна для «подключить»).
+ *
+ * Связанные commits/merge_requests/deployments/project_gitlab_users
  * остаются в БД для исторических метрик (cascade-удаление НЕ применяется
  * намеренно — данные ценны и после отключения).
  */
@@ -271,6 +357,10 @@ export const deleteProject = async (actorUid: string, uid: string) => {
   await db.transaction(async (tx) => {
     await tx.delete(teamProjects).where(eq(teamProjects.projectUid, uid));
     await tx.delete(syncStatuses).where(eq(syncStatuses.projectUid, uid));
+    await tx
+      .update(gitlabAvailableProjects)
+      .set({ connectedProjectUid: null })
+      .where(eq(gitlabAvailableProjects.connectedProjectUid, uid));
     await tx.delete(projects).where(eq(projects.uid, uid));
   });
 
