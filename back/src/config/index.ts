@@ -4,6 +4,8 @@ import { env } from './env';
 
 const isProduction = env.NODE_ENV === 'prod';
 const isLocale = env.LOCALE === 'true';
+const syncIntervalMinutes =
+  env.SYNC_INTERVAL_M && Number(env.SYNC_INTERVAL_M) > 0 ? Number(env.SYNC_INTERVAL_M) : 10;
 
 export default {
   app: {
@@ -50,7 +52,9 @@ export default {
     tokenKey: env.TOKEN_ENCRYPTION_KEY
   },
   sync: {
-    intervalMs: (env.SYNC_INTERVAL_M ? Number(env.SYNC_INTERVAL_M) : 10) * 60 * 1000,
+    // node-cron расписание. Приоритет у явного SYNC_CRON; иначе собирается
+    // выражение «каждые N минут» из SYNC_INTERVAL_M (по умолчанию 10).
+    cronExpression: env.SYNC_CRON?.trim() || `*/${syncIntervalMinutes} * * * *`,
     runOnStart: env.SYNC_RUN_ON_START === 'true'
   }
 } as const;

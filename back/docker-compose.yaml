@@ -84,6 +84,7 @@ services:
       TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY}
       # Sync-планировщик (FR-02), опциональные.
       SYNC_INTERVAL_M: ${SYNC_INTERVAL_M}
+      SYNC_CRON: ${SYNC_CRON}
       SYNC_RUN_ON_START: ${SYNC_RUN_ON_START}
     command: sh -c "npm run migrate:prod && npm run seed:mock:prod && npm run start"
     deploy:

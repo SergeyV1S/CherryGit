@@ -513,7 +513,8 @@ shared/
 | `REDIS_HOST / REDIS_PORT / REDIS_PASSWORD`                | Redis                                                                            |
 | **`TOKEN_ENCRYPTION_KEY`**                                | **AES-256 ключ (64 hex символа = 32 байта) для шифрования PAT-токенов GitLab. Генерация: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`** |
 | `LOGIN_RATE_LIMITER_ATTEMPTS / TIMER_M`                   | Брутфорс-защита login                                                            |
-| `SYNC_INTERVAL_M`                                         | Период sync-планировщика в минутах (default 10)                                  |
+| `SYNC_INTERVAL_M`                                         | Период sync-планировщика в минутах (default 10). Используется, если не задан `SYNC_CRON` (конвертируется в `*/N * * * *`) |
+| `SYNC_CRON`                                               | cron-выражение расписания sync (node-cron, 5 полей). Приоритетнее `SYNC_INTERVAL_M`. Пример: `0 9-18 * * 1-5` |
 | `SYNC_RUN_ON_START`                                       | `true` — первый sync-tick при старте приложения                                  |
 | `SEED_ADMIN_MAIL / PASSWORD / FIRST / LAST`               | Опционально для `yarn seed` (default `admin@cherrygit.local` / `Admin1234!`)    |
 

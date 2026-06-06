@@ -34,8 +34,16 @@ const envSchema = z.object({
     .string()
     .length(64, 'TOKEN_ENCRYPTION_KEY must be 32 bytes in hex (64 chars)'),
 
-  /** Интервал между прогонами sync-планировщика в минутах. Пусто → 10 минут. */
+  /**
+   * Интервал между прогонами sync-планировщика в минутах. Пусто → 10 минут.
+   * Используется только если SYNC_CRON не задан (собирается `*\/N * * * *`).
+   */
   SYNC_INTERVAL_M: z.string().optional(),
+  /**
+   * cron-выражение расписания sync (5 полей). Приоритетнее SYNC_INTERVAL_M.
+   * Пример: "0 9-18 * * 1-5" — каждый час с 9 до 18 по будням.
+   */
+  SYNC_CRON: z.string().optional(),
   /** "true" чтобы запустить первый sync-tick сразу при старте приложения. */
   SYNC_RUN_ON_START: z.string().optional()
 });

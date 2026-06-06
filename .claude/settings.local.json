@@ -27,7 +27,24 @@
       "Bash(npm install *)",
       "Bash(npx vite *)",
       "Bash(git commit -m ' *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Read(//c/Users/serge/AppData/Roaming/Claude/local-agent-mode-sessions/skills-plugin/1a67fc07-fab5-432b-9ae9-6991641ff9e7/a5dbe338-93d7-4b4b-8c58-0270e4936f31/skills/docx/**)",
+      "Bash(pandoc --version)",
+      "Bash(where python *)",
+      "Bash(where python3 *)",
+      "Bash(where py *)",
+      "Bash(where node *)",
+      "Bash(where unzip *)",
+      "Bash(where 7z)",
+      "Bash(unzip -p \"C:/Users/serge/Downloads/Telegram Desktop/ВКР_БЕЛЯЕВ_NMS_2026.docx\" word/document.xml)",
+      "Bash(node \"C:/Users/serge/Desktop/универ/Диплом/_extract_docx.js\")",
+      "Bash(unzip -p \"C:/Users/serge/Desktop/универ/Диплом/ВКР_ЯЦУК_CHERRYGIT.docx\" word/document.xml)",
+      "Bash(node -e \"const p=require\\('./package.json'\\); const d={...p.dependencies,...p.devDependencies}; console.log\\('node-cron:', d['node-cron']||'NOT PRESENT'\\); console.log\\('csv-stringify:', d['csv-stringify']||'-'\\); console.log\\('jsonwebtoken:', d['jsonwebtoken']||'-'\\); console.log\\('drizzle-orm:', d['drizzle-orm']||'-'\\); console.log\\('zod:', d['zod']||'-'\\); console.log\\('bcrypt:', d['bcrypt']||d['bcryptjs']||'-'\\);\")",
+      "Bash(git grep *)",
+      "Bash(ls test *)",
+      "Bash(ls src/**/*.test.ts)",
+      "Bash(npx prettier *)",
+      "Bash(node -e \"const cron=require\\('node-cron'\\); console.log\\('valid */10:', cron.validate\\('*/10 * * * *'\\)\\); console.log\\('valid biz-hours:', cron.validate\\('0 9-18 * * 1-5'\\)\\); console.log\\('invalid junk:', cron.validate\\('not a cron'\\)\\); console.log\\('has schedule/destroy:', typeof cron.schedule\\);\")"
     ]
   }
 }

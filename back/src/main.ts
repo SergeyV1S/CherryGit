@@ -84,7 +84,7 @@ export const init = (async () => {
   DI.server = app.listen(port, () => {
     logger.info(`listening in port:${port}`);
     startScheduler({
-      intervalMs: config.sync.intervalMs,
+      cronExpression: config.sync.cronExpression,
       runOnStart: config.sync.runOnStart
     });
   });
