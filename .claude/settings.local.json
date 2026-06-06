@@ -44,7 +44,9 @@
       "Bash(ls test *)",
       "Bash(ls src/**/*.test.ts)",
       "Bash(npx prettier *)",
-      "Bash(node -e \"const cron=require\\('node-cron'\\); console.log\\('valid */10:', cron.validate\\('*/10 * * * *'\\)\\); console.log\\('valid biz-hours:', cron.validate\\('0 9-18 * * 1-5'\\)\\); console.log\\('invalid junk:', cron.validate\\('not a cron'\\)\\); console.log\\('has schedule/destroy:', typeof cron.schedule\\);\")"
+      "Bash(node -e \"const cron=require\\('node-cron'\\); console.log\\('valid */10:', cron.validate\\('*/10 * * * *'\\)\\); console.log\\('valid biz-hours:', cron.validate\\('0 9-18 * * 1-5'\\)\\); console.log\\('invalid junk:', cron.validate\\('not a cron'\\)\\); console.log\\('has schedule/destroy:', typeof cron.schedule\\);\")",
+      "Bash(node -e \"const m=require\\('csv-stringify/sync'\\); console.log\\('csv-stringify resolves, has stringify:', typeof m.stringify\\)\")",
+      "Bash(node -e \"console.log\\(require\\('csv-stringify/package.json'\\).version\\)\")"
     ]
   }
 }
