@@ -68,27 +68,27 @@
   <!--                        APPLICATION SERVER                         -->
   <!-- ================================================================ -->
   <g>
-    <polygon points="370,470 410,450 740,450 700,470" fill="#dbe3ec" stroke="#222"/>
-    <polygon points="700,470 740,450 740,710 700,730" fill="#cfd7e0" stroke="#222"/>
+    <polygon points="370,470 410,450 920,450 880,470" fill="#dbe3ec" stroke="#222"/>
+    <polygon points="880,470 920,450 920,710 880,730" fill="#cfd7e0" stroke="#222"/>
 
-    <!-- уменьшенный основной контейнер -->
-    <rect x="370" y="470" width="330" height="260"
+    <!-- main app-server container (widened to host Node.js + Redis) -->
+    <rect x="370" y="470" width="510" height="260"
           fill="url(#nodeShade)" stroke="#222" stroke-width="1.5"/>
 
-    <text x="535" y="495" text-anchor="middle"
+    <text x="625" y="495" text-anchor="middle"
           font-style="italic" font-size="12">«device, server»</text>
 
-    <text x="535" y="515" text-anchor="middle"
+    <text x="625" y="515" text-anchor="middle"
           font-weight="bold" font-size="14">
       :Сервер приложений
     </text>
 
-    <text x="535" y="535" text-anchor="middle"
+    <text x="625" y="535" text-anchor="middle"
           font-size="11" fill="#444">
       {OS = Ubuntu Server 22.04 LTS}
     </text>
 
-    <!-- Outer EE: Node.js -->
+    <!-- Outer EE: Node.js (left) -->
     <rect x="395" y="555" width="280" height="165"
           fill="url(#envShade)" stroke="#222"/>
 
@@ -130,10 +130,31 @@
       :node-cron
     </text>
 
-    <!-- Internal link -->
-    <line x1="535" y1="665" x2="535" y2="650"
-          stroke="#222" stroke-width="1"
-          stroke-dasharray="2 2"/>
+    <!-- Redis EE (right, sibling of Node.js on same server) -->
+    <rect x="700" y="555" width="155" height="165"
+          fill="url(#envShade)" stroke="#222"/>
+
+    <text x="777" y="575" text-anchor="middle"
+          font-style="italic" font-size="11">
+      key-value store
+    </text>
+
+    <text x="777" y="592" text-anchor="middle"
+          font-weight="bold" font-size="12">
+      :Redis 7
+    </text>
+
+    <text x="777" y="640" text-anchor="middle"
+          font-size="10" fill="#444">
+      <tspan x="777" dy="0">refresh-токены,</tspan>
+      <tspan x="777" dy="14">rate-limit входа</tspan>
+    </text>
+
+    <!-- Internal link: Node.js (Express) <-> Redis, loopback TCP -->
+    <line x1="675" y1="637" x2="700" y2="637"
+          stroke="#222" stroke-width="1" stroke-dasharray="3 2"/>
+    <text x="688" y="630" text-anchor="middle"
+          font-size="9" fill="#555">6379</text>
   </g>
 
   <!-- ================================================================ -->
@@ -153,7 +174,7 @@
 
     <rect x="955" y="555" width="260" height="85" fill="url(#envShade)" stroke="#222"/>
     <text x="1085" y="575" text-anchor="middle" font-style="italic" font-size="11">database</text>
-    <text x="1085" y="592" text-anchor="middle" font-weight="bold" font-size="12">:PostgreSQL 15</text>
+    <text x="1085" y="592" text-anchor="middle" font-weight="bold" font-size="12">:PostgreSQL 16</text>
   </g>
 
   <!-- ================================================================ -->
@@ -190,16 +211,13 @@
   <text x="555" y="385" font-style="italic" font-size="11">«HTTP»</text>
   <text x="555" y="402" font-size="10" fill="#555">reverse-proxy /api</text>
 
-  <!-- App Server (right ~700,610) -> DB Server (left ~930,610) -->
-  <line x1="700" y1="640" x2="930" y2="640" stroke="#222" stroke-width="1.5"/>
-  <text x="815" y="632" text-anchor="middle" font-style="italic" font-size="11">«SQL / TCP»</text>
-  <text x="815" y="655" text-anchor="middle" font-size="10" fill="#555">PostgreSQL 5432</text>
+  <!-- App Server (right ~880,610) -> DB Server (left ~930,610) -->
+  <line x1="880" y1="640" x2="930" y2="640" stroke="#222" stroke-width="1.5"/>
+  <text x="905" y="628" text-anchor="middle" font-style="italic" font-size="10">«SQL/TCP»</text>
+  <text x="905" y="660" text-anchor="middle" font-size="9" fill="#555">5432</text>
 
-  <!-- App Server (top-right ~700,490) -> GitLab (bottom ~1115,320) -->
-  <line x1="700" y1="490" x2="950" y2="320" stroke="#222" stroke-width="1.5" stroke-dasharray="6 3"/>
-  <text x="810" y="395" font-style="italic" font-size="11">«HTTPS / REST»</text>
-  <text x="810" y="412" font-size="10" fill="#555">Personal Access Token</text>
-
-  <!-- Internal: node-cron triggers Express (visual link inside app server) -->
-  <line x1="535" y1="700" x2="535" y2="685" stroke="#222" stroke-width="1" stroke-dasharray="2 2"/>
+  <!-- App Server (top-right ~880,490) -> GitLab (bottom ~1115,320) -->
+  <line x1="880" y1="490" x2="990" y2="320" stroke="#222" stroke-width="1.5" stroke-dasharray="6 3"/>
+  <text x="905" y="405" font-style="italic" font-size="11">«HTTPS / REST»</text>
+  <text x="905" y="422" font-size="10" fill="#555">Personal Access Token</text>
 </svg>
