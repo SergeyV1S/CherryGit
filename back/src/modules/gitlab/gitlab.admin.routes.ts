@@ -18,7 +18,16 @@ router.delete('/connections/:uid', GitlabController.deleteConnection);
 /** Проверить валидность токена подключения без получения проектов (для UI-индикатора) */
 router.post('/connections/:uid/test', GitlabController.testConnection);
 
-/** Получить список проектов с GitLab-инстанса для последующего подключения */
-router.get('/connections/:uid/available-projects', GitlabController.fetchAvailableProjects);
+/**
+ * Список доступных проектов из пула discovery
+ * (последний snapshot, не дёргает GitLab).
+ */
+router.get('/connections/:uid/available-projects', GitlabController.listAvailableProjects);
+
+/**
+ * Ручной запуск discovery (обновить пул проектов + список участников).
+ * Возвращает отчёт `DiscoveryReport` синхронно.
+ */
+router.post('/connections/:uid/discover', GitlabController.triggerDiscovery);
 
 export default router;

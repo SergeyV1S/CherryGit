@@ -26,10 +26,16 @@ const LABEL_SET = z
   .max(20, 'не более 20 меток')
   .transform((labels) => [...new Set(labels)]);
 
+/**
+ * Подключение проекта из пула discovery.
+ *
+ * Принимает UID записи `gitlab_available_projects` (то есть проект уже
+ * увиденный и закэшированный admin'ом через discovery). Сервис сам резолвит
+ * `gitlabConnectionUid` и `gitlabProjectId` — это исключает «угадывание»
+ * проекта с GitLab-инстансов, к которым у админа нет токена.
+ */
 export const connectProjectSchema = z.object({
-  gitlabConnectionUid: z.string().uuid(),
-  gitlabProjectId: z.number().int().positive(),
-  teamUids: z.array(z.string().uuid()).optional(),
+  availableProjectUid: z.string().uuid(),
   releaseTagPattern: z.string().min(1).max(255).optional(),
   hotfixLabels: LABEL_SET.optional(),
   revertLabels: LABEL_SET.optional()

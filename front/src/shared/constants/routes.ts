@@ -26,6 +26,7 @@ class Routes {
     root: '/admin' as const,
     users: '/admin/users' as const,
     user: (uid: string) => `/admin/users/${uid}` as const,
+    gitlabUsers: '/admin/gitlab-users' as const,
     teams: '/admin/teams' as const,
     team: (uid: string) => `/admin/teams/${uid}` as const,
     departments: '/admin/departments' as const,

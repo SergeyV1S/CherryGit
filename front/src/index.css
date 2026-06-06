@@ -48,86 +48,244 @@
     --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* =========================================================================
+   CherryGit — вишнёво-красная тема.
+   Палитра: cherry (основной), wine (тёмный акцент), blush (мягкие фоны),
+   crimson (контраст).
+   ========================================================================= */
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.141 0.005 285.823);
+    /* Базовый фон страницы — очень светлый кремово-розовый (не белый) */
+    --background: oklch(0.985 0.008 25);
+    --foreground: oklch(0.18 0.04 25);
+
+    /* Карточки — чисто белые с лёгким тёплым оттенком */
     --card: oklch(1 0 0);
-    --card-foreground: oklch(0.141 0.005 285.823);
+    --card-foreground: oklch(0.18 0.04 25);
     --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.141 0.005 285.823);
-    --primary: oklch(0.508 0.118 165.612);
-    --primary-foreground: oklch(0.979 0.021 166.113);
-    --secondary: oklch(0.967 0.001 286.375);
-    --secondary-foreground: oklch(0.21 0.006 285.885);
-    --muted: oklch(0.967 0.001 286.375);
-    --muted-foreground: oklch(0.552 0.016 285.938);
-    --accent: oklch(0.967 0.001 286.375);
-    --accent-foreground: oklch(0.21 0.006 285.885);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.92 0.004 286.32);
-    --input: oklch(0.92 0.004 286.32);
-    --ring: oklch(0.705 0.015 286.067);
-    --chart-1: oklch(0.871 0.15 154.449);
-    --chart-2: oklch(0.723 0.219 149.579);
-    --chart-3: oklch(0.627 0.194 149.214);
-    --chart-4: oklch(0.527 0.154 150.069);
-    --chart-5: oklch(0.448 0.119 151.328);
-    --radius: 0.45rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.141 0.005 285.823);
-    --sidebar-primary: oklch(0.596 0.145 163.225);
-    --sidebar-primary-foreground: oklch(0.979 0.021 166.113);
-    --sidebar-accent: oklch(0.967 0.001 286.375);
-    --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
-    --sidebar-border: oklch(0.92 0.004 286.32);
-    --sidebar-ring: oklch(0.705 0.015 286.067);
+    --popover-foreground: oklch(0.18 0.04 25);
+
+    /* Главный цвет бренда — насыщенный вишнёвый */
+    --primary: oklch(0.55 0.21 22);
+    --primary-foreground: oklch(0.99 0.005 25);
+
+    /* Вторичный — мягкий blush для фоновых акцентов */
+    --secondary: oklch(0.96 0.025 20);
+    --secondary-foreground: oklch(0.34 0.13 22);
+
+    /* Muted — нейтральный с розовым подтоном */
+    --muted: oklch(0.965 0.015 22);
+    --muted-foreground: oklch(0.48 0.04 22);
+
+    /* Accent — для hover, selected состояний */
+    --accent: oklch(0.93 0.05 22);
+    --accent-foreground: oklch(0.34 0.16 22);
+
+    /* Destructive — глубокий бордовый */
+    --destructive: oklch(0.48 0.22 18);
+
+    /* Бордеры и инпуты — мягкий розовый */
+    --border: oklch(0.91 0.025 22);
+    --input: oklch(0.95 0.02 22);
+    --ring: oklch(0.55 0.21 22);
+
+    /* Чарты — градация от cherry к wine */
+    --chart-1: oklch(0.68 0.22 22);
+    --chart-2: oklch(0.55 0.21 22);
+    --chart-3: oklch(0.45 0.20 18);
+    --chart-4: oklch(0.36 0.16 16);
+    --chart-5: oklch(0.78 0.14 30);
+
+    --radius: 0.625rem;
+
+    /* Sidebar — тёмный бордовый градиент */
+    --sidebar: oklch(0.22 0.07 22);
+    --sidebar-foreground: oklch(0.95 0.02 22);
+    --sidebar-primary: oklch(0.68 0.22 22);
+    --sidebar-primary-foreground: oklch(0.99 0.005 25);
+    --sidebar-accent: oklch(0.30 0.10 22);
+    --sidebar-accent-foreground: oklch(0.97 0.02 22);
+    --sidebar-border: oklch(0.32 0.08 22);
+    --sidebar-ring: oklch(0.68 0.22 22);
 }
 
 .dark {
-    --background: oklch(0.141 0.005 285.823);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.21 0.006 285.885);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.21 0.006 285.885);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.432 0.095 166.913);
-    --primary-foreground: oklch(0.979 0.021 166.113);
-    --secondary: oklch(0.274 0.006 286.033);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.274 0.006 286.033);
-    --muted-foreground: oklch(0.705 0.015 286.067);
-    --accent: oklch(0.274 0.006 286.033);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
+    --background: oklch(0.16 0.04 22);
+    --foreground: oklch(0.97 0.015 22);
+
+    --card: oklch(0.22 0.05 22);
+    --card-foreground: oklch(0.97 0.015 22);
+    --popover: oklch(0.22 0.05 22);
+    --popover-foreground: oklch(0.97 0.015 22);
+
+    --primary: oklch(0.68 0.22 22);
+    --primary-foreground: oklch(0.16 0.04 22);
+
+    --secondary: oklch(0.28 0.06 22);
+    --secondary-foreground: oklch(0.97 0.015 22);
+
+    --muted: oklch(0.28 0.06 22);
+    --muted-foreground: oklch(0.72 0.04 22);
+
+    --accent: oklch(0.32 0.08 22);
+    --accent-foreground: oklch(0.97 0.015 22);
+
+    --destructive: oklch(0.65 0.22 22);
+
     --border: oklch(1 0 0 / 10%);
     --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.552 0.016 285.938);
-    --chart-1: oklch(0.871 0.15 154.449);
-    --chart-2: oklch(0.723 0.219 149.579);
-    --chart-3: oklch(0.627 0.194 149.214);
-    --chart-4: oklch(0.527 0.154 150.069);
-    --chart-5: oklch(0.448 0.119 151.328);
-    --sidebar: oklch(0.21 0.006 285.885);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.696 0.17 162.48);
-    --sidebar-primary-foreground: oklch(0.262 0.051 172.552);
-    --sidebar-accent: oklch(0.274 0.006 286.033);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
+    --ring: oklch(0.68 0.22 22);
+
+    --chart-1: oklch(0.78 0.20 22);
+    --chart-2: oklch(0.65 0.22 22);
+    --chart-3: oklch(0.52 0.20 20);
+    --chart-4: oklch(0.42 0.16 18);
+    --chart-5: oklch(0.85 0.14 30);
+
+    --sidebar: oklch(0.13 0.03 22);
+    --sidebar-foreground: oklch(0.97 0.015 22);
+    --sidebar-primary: oklch(0.68 0.22 22);
+    --sidebar-primary-foreground: oklch(0.16 0.04 22);
+    --sidebar-accent: oklch(0.22 0.06 22);
+    --sidebar-accent-foreground: oklch(0.97 0.015 22);
     --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.552 0.016 285.938);
+    --sidebar-ring: oklch(0.68 0.22 22);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
-    }
-  body {
-    @apply bg-background text-foreground;
-    }
-  button:not(:disabled), [role="button"]:not(:disabled) {
-    cursor: pointer;
-    }
+  }
+
   html {
-    @apply font-sans;
-    }
+    @apply font-sans antialiased;
+  }
+
+  body {
+    @apply text-foreground min-h-screen;
+    background-image:
+      radial-gradient(at 0% 0%, oklch(0.96 0.06 22 / 0.5) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, oklch(0.94 0.08 30 / 0.4) 0px, transparent 50%),
+      radial-gradient(at 50% 100%, oklch(0.97 0.04 18 / 0.45) 0px, transparent 50%);
+    background-attachment: fixed;
+    background-color: oklch(0.985 0.008 25);
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  /* Тонкий и красивый scrollbar */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: oklch(0.85 0.06 22);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.68 0.22 22);
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+
+  /* Длинные строки/email/UUID должны переноситься, а не выпирать из карточек */
+  code, pre, .break-anywhere {
+    overflow-wrap: anywhere;
+    word-break: normal;
+  }
+}
+
+@layer components {
+  /* Универсальный контейнер страницы — одинаковый padding и max-width */
+  .page-shell {
+    @apply mx-auto w-full max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8 lg:py-8;
+  }
+
+  /* «Богатая» карточка — мягкая тень + лёгкая обводка + cherry-подсветка сверху */
+  .card-rich {
+    @apply relative overflow-hidden rounded-xl border border-border/60 bg-card shadow-sm transition-shadow hover:shadow-md;
+  }
+
+  .card-rich::before {
+    content: '';
+    @apply pointer-events-none absolute inset-x-0 top-0 h-px;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      oklch(0.68 0.22 22 / 0.6),
+      transparent
+    );
+  }
+
+  /* Градиентный hero-блок (используется на login/dashboard для брендинга) */
+  .cherry-gradient {
+    background: linear-gradient(
+      135deg,
+      oklch(0.55 0.21 22) 0%,
+      oklch(0.45 0.22 18) 50%,
+      oklch(0.34 0.16 16) 100%
+    );
+    color: oklch(0.99 0.005 25);
+  }
+
+  /* Светлый cherry-gradient для статус-блоков */
+  .cherry-gradient-soft {
+    background: linear-gradient(
+      135deg,
+      oklch(0.97 0.04 22) 0%,
+      oklch(0.93 0.06 22) 100%
+    );
+  }
+
+  /* Универсальный «pill»-бейдж для status/role */
+  .cherry-chip {
+    @apply inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary;
+  }
+
+  /* Заголовок страницы — единый стиль */
+  .page-title {
+    @apply text-2xl font-bold tracking-tight text-foreground sm:text-3xl;
+    background: linear-gradient(
+      135deg,
+      oklch(0.34 0.16 22) 0%,
+      oklch(0.55 0.21 22) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .page-subtitle {
+    @apply mt-1 text-sm text-muted-foreground sm:text-base;
+  }
+
+  /* «Стеклянная» панель — используется для floating-блоков */
+  .glass-panel {
+    @apply rounded-xl border border-white/40 bg-white/70 shadow-lg backdrop-blur-md;
+  }
+
+  /* Long-text utility — для UUID, email, GitLab namespace и т.п. */
+  .text-clip {
+    @apply truncate;
+  }
+
+  .text-wrap-safe {
+    overflow-wrap: anywhere;
+    word-break: normal;
+  }
+
+  /* Утилита для текста, который должен переноситься по словам */
+  .text-balance {
+    text-wrap: balance;
+  }
 }

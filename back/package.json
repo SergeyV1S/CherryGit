@@ -14,6 +14,8 @@
     "introspect": "drizzle-kit introspect --config=src/db/drizzle/drizzle.config.ts",
     "migrate": "ts-node src/db/drizzle/migrate.ts",
     "seed": "ts-node src/db/drizzle/seed.ts",
+    "seed:mock": "ts-node src/db/drizzle/seed-mock.ts",
+    "seed:mock:prod": "node dist/db/drizzle/seed-mock.js",
     "lint": "eslint . --fix",
     "format": "prettier --write .",
     "pretty": "yarn format && yarn lint",

@@ -92,9 +92,8 @@ export class ChangeFailureRateCalculator extends MetricCalculator {
 
     const category = totalDeploys > 0 ? ChangeFailureRateCalculator.categorize(ratePercent) : null;
 
-    const timeline = buckets
-      .entries()
-      .toSorted(([a], [b]) => a.localeCompare(b))
+    const timeline = [...buckets.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
       .map(([bucket, v]) => ({
         bucket,
         totalDeploys: v.total,

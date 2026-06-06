@@ -210,13 +210,23 @@ export const listUsers = async (filter: ListUsersFilter = {}) => {
 
   const where = conditions.length > 0 ? and(...conditions) : undefined;
 
-  return db
-    .select(PUBLIC_USER_FIELDS)
-    .from(users)
-    .where(where)
-    .orderBy(asc(users.secondName), asc(users.firstName))
-    .limit(Math.min(filter.limit ?? 100, 500))
-    .offset(filter.offset ?? 0);
+  // Возвращаем { items, total } — для admin-UI пагинации.
+  // total считается по тем же фильтрам, без limit/offset.
+  const [items, totalRows] = await Promise.all([
+    db
+      .select(PUBLIC_USER_FIELDS)
+      .from(users)
+      .where(where)
+      .orderBy(asc(users.secondName), asc(users.firstName))
+      .limit(Math.min(filter.limit ?? 100, 500))
+      .offset(filter.offset ?? 0),
+    db
+      .select({ value: sql<number>`count(*)::int` })
+      .from(users)
+      .where(where)
+  ]);
+
+  return { items, total: Number(totalRows[0]?.value ?? 0) };
 };
 
 /**

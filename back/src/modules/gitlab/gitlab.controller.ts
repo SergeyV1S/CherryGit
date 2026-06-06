@@ -78,13 +78,26 @@ export async function testConnection(
   }
 }
 
-export async function fetchAvailableProjects(
+export async function listAvailableProjects(
   req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> {
   try {
-    const result = await GitlabService.fetchAvailableProjects(param(req, 'uid'));
+    const result = await GitlabService.listAvailableProjects(param(req, 'uid'));
+    sendResponse(res, HttpStatus.OK, result);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function triggerDiscovery(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const result = await GitlabService.triggerDiscovery(req.user!.uid, param(req, 'uid'));
     sendResponse(res, HttpStatus.OK, result);
   } catch (error) {
     next(error);

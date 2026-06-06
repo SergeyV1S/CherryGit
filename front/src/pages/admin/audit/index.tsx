@@ -121,11 +121,11 @@ export default function AdminAuditPage() {
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
 
   return (
-    <div className='p-6 space-y-6 max-w-6xl'>
-      <div className='flex items-center justify-between'>
-        <div>
-          <h1 className='text-2xl font-bold tracking-tight'>Журнал аудита</h1>
-          <p className='text-muted-foreground text-sm mt-1'>История всех действий в системе</p>
+    <div className='page-shell'>
+      <div className='flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between'>
+        <div className='min-w-0'>
+          <h1 className='page-title'>Журнал аудита</h1>
+          <p className='page-subtitle text-balance'>История всех действий в системе</p>
         </div>
         <Button variant='outline' className='gap-2' onClick={handleExport}>
           <Download size={16} />

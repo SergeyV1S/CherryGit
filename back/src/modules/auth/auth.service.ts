@@ -75,29 +75,23 @@ export const login = async (userData: LoginUserDto, ip: string) => {
   }
 };
 
-export const register = async (userData: CreateUserDto) => {
-  try {
-    const user = await userService.createUser(userData);
-    const payload: TokenDto = {
-      role: user.role,
-      uid: user.uid
-    };
-    const data = { role: user.role };
-
-    // Open registration — audit. Роль ВСЕГДА DEVELOPER (user.service форсирует),
-    // но в details записываем явно, чтобы security-журнал был самодостаточным.
-    await recordAuditLog({
-      userUid: user.uid,
-      action: 'auth.registered',
-      entityType: 'user',
-      entityId: user.uid,
-      details: { mail: user.mail, role: user.role }
-    });
-
-    return { ...(await jwtService.createTokenAsync(payload)), data };
-  } catch (error) {
-    throw error;
-  }
+/**
+ * Открытая регистрация отключена в новом флоу: пользователи появляются
+ * только через `provisioning.service` (discovery → connectProject).
+ * Метод оставлен для совместимости с тестами и явно бросает 403,
+ * чтобы клиент видел «фича отключена», а не молчаливый 404.
+ */
+export const register = async (_userData: CreateUserDto): Promise<never> => {
+  await recordAuditLog({
+    userUid: undefined,
+    action: 'auth.register_blocked',
+    entityType: 'auth',
+    details: { reason: 'registration disabled; users created via admin provisioning' }
+  });
+  throw new CustomError(
+    HttpStatus.FORBIDDEN,
+    'Регистрация отключена. Аккаунты создаются администратором.'
+  );
 };
 
 export const logout = async (uid: string) => {
@@ -147,6 +141,17 @@ const validateUser = async (userData: LoginUserDto, ip: string) => {
     const passwordEquals = await compare(userData.password, user.password);
 
     if (user && passwordEquals) {
+      // Auth-гейт нового флоу: войти могут только аккаунты, прошедшие
+      // provisioning через discovery → connectProject, ИЛИ системный
+      // администратор. Это закрывает сценарий «зарегистрировался сам,
+      // получил доступ к чужим данным» и поддерживает требование 5
+      // нового флоу.
+      if (!user.provisionedAt && user.role !== 'ADMIN') {
+        throw new CustomError(
+          HttpStatus.FORBIDDEN,
+          'Ваш аккаунт ещё не активирован администратором. Обратитесь к нему.'
+        );
+      }
       const { password, ...result } = user;
       await jwtService.removeToken(`rate-limiter:login-${ip}`);
       return result;

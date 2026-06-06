@@ -10,9 +10,26 @@ export interface GitlabUser {
   email?: string;
   id: number;
   name: string;
+  /** public_email доступен на /users без админ-токена; email — только админу */
+  public_email?: string;
   state: 'active' | 'blocked' | 'deactivated';
   username: string;
   web_url: string;
+}
+
+/**
+ * Участник проекта (GET /projects/:id/members/all).
+ *
+ * access_level — стандартные GitLab-уровни:
+ *  10  Guest
+ *  20  Reporter
+ *  30  Developer
+ *  40  Maintainer
+ *  50  Owner
+ */
+export interface GitlabProjectMember extends GitlabUser {
+  access_level: number;
+  expires_at: string | null;
 }
 
 export interface GitlabNamespace {

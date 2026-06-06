@@ -56,13 +56,13 @@ export default function MePage() {
   const hasNoTeams = !user?.teams || user.teams.length === 0;
 
   return (
-    <div className='p-6 space-y-6 max-w-5xl'>
+    <div className='page-shell'>
       {/* Header */}
-      <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3'>
-        <div>
-          <h1 className='text-2xl font-bold tracking-tight'>Мои метрики</h1>
-          <p className='text-muted-foreground text-sm mt-1'>
-            Персональные показатели процесса разработки
+      <div className='flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between'>
+        <div className='min-w-0'>
+          <h1 className='page-title'>Мои метрики</h1>
+          <p className='page-subtitle text-balance'>
+            Персональные показатели процесса разработки с командным baseline
           </p>
         </div>
         <PeriodSelector selected={periodDays} onChange={setPeriodDays} />
@@ -71,11 +71,19 @@ export default function MePage() {
       {/* No teams state */}
       {hasNoTeams && (
         <Card>
-          <CardContent className='flex flex-col items-center gap-3 py-10 text-center'>
-            <GitBranch size={40} className='text-muted-foreground' weight='duotone' />
-            <div>
-              <p className='font-medium'>Вы не состоите ни в одной команде</p>
-              <p className='text-sm text-muted-foreground mt-1'>
+          <CardContent className='flex flex-col items-center gap-4 py-12 text-center'>
+            <div
+              className='flex h-16 w-16 items-center justify-center rounded-2xl text-white shadow-lg shadow-rose-900/20'
+              style={{
+                background:
+                  'linear-gradient(135deg, oklch(0.78 0.22 22), oklch(0.45 0.22 18))'
+              }}
+            >
+              <GitBranch size={28} weight='duotone' />
+            </div>
+            <div className='space-y-1'>
+              <p className='font-semibold text-balance'>Вы не состоите ни в одной команде</p>
+              <p className='text-sm text-muted-foreground text-balance'>
                 Обратитесь к администратору системы для добавления в команду
               </p>
             </div>
@@ -87,13 +95,13 @@ export default function MePage() {
       {!hasNoTeams &&
         user?.gitlabIdentities &&
         user.gitlabIdentities.length === 0 && (
-          <div className='flex items-start gap-2 rounded-lg border border-yellow-200 bg-yellow-50 dark:border-yellow-900/50 dark:bg-yellow-900/20 px-4 py-3'>
-            <Warning size={16} className='text-yellow-600 mt-0.5 shrink-0' weight='fill' />
-            <div>
-              <p className='text-sm font-medium text-yellow-800 dark:text-yellow-400'>
+          <div className='flex items-start gap-3 rounded-xl border border-amber-300/60 bg-gradient-to-br from-amber-50 to-amber-100/40 px-4 py-3.5 shadow-sm dark:border-amber-900/50 dark:from-amber-900/20 dark:to-amber-900/10'>
+            <Warning size={18} className='mt-0.5 shrink-0 text-amber-600' weight='fill' />
+            <div className='min-w-0 space-y-0.5'>
+              <p className='text-sm font-semibold text-amber-900 dark:text-amber-300'>
                 GitLab-аккаунт не привязан
               </p>
-              <p className='text-xs text-yellow-700 dark:text-yellow-500 mt-0.5'>
+              <p className='text-xs leading-relaxed text-amber-800/90 dark:text-amber-400/90 text-balance'>
                 Личные метрики показывают только MR, у которых аккаунт GitLab совпадает с вашей
                 корпоративной почтой. Попросите администратора привязать ваш GitLab-аккаунт для
                 точных данных.
@@ -105,7 +113,7 @@ export default function MePage() {
       {/* Error state */}
       {isError && (
         <Card>
-          <CardContent className='flex flex-col items-center gap-2 py-8 text-center'>
+          <CardContent className='flex flex-col items-center gap-2 py-10 text-center'>
             <p className='text-sm text-muted-foreground'>
               Не удалось загрузить метрики. Попробуйте обновить страницу.
             </p>
@@ -118,22 +126,22 @@ export default function MePage() {
         <div className='space-y-6'>
           {(user?.teams ?? []).map((team) => (
             <div key={team.uid} className='space-y-3'>
-              <div className='h-5 w-48 bg-muted animate-pulse rounded' />
-              <div className='grid gap-4 md:grid-cols-2'>
-                <div className='h-72 bg-muted animate-pulse rounded-lg' />
-                <div className='h-72 bg-muted animate-pulse rounded-lg' />
+              <div className='h-6 w-48 animate-pulse rounded-md bg-muted' />
+              <div className='grid gap-5 md:grid-cols-2'>
+                <div className='h-72 animate-pulse rounded-xl bg-muted' />
+                <div className='h-72 animate-pulse rounded-xl bg-muted' />
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Metrics by team */}
+      {/* Empty period */}
       {!isLoading && metrics && metrics.teams.length === 0 && !hasNoTeams && (
         <Card>
-          <CardContent className='flex flex-col items-center gap-2 py-8 text-center'>
-            <p className='font-medium'>Нет данных за выбранный период</p>
-            <p className='text-sm text-muted-foreground'>
+          <CardContent className='flex flex-col items-center gap-2 py-10 text-center'>
+            <p className='font-semibold text-balance'>Нет данных за выбранный период</p>
+            <p className='text-sm text-muted-foreground text-balance'>
               Попробуйте выбрать более длинный период или дождитесь синхронизации проектов
             </p>
           </CardContent>
@@ -144,38 +152,51 @@ export default function MePage() {
         metrics?.teams.map((team) => {
           const membership = user?.teams.find((t) => t.uid === team.teamUid);
           return (
-            <div key={team.teamUid} className='space-y-3'>
+            <section key={team.teamUid} className='space-y-4'>
               {/* Team header */}
-              <div className='flex items-center gap-2'>
-                <h2 className='text-lg font-semibold'>{team.teamName}</h2>
+              <div className='flex flex-wrap items-center gap-2.5'>
+                <span
+                  aria-hidden
+                  className='h-2 w-2 rounded-full shadow-sm'
+                  style={{ background: 'oklch(0.55 0.21 22)' }}
+                />
+                <h2 className='text-lg font-semibold tracking-tight text-balance'>
+                  {team.teamName}
+                </h2>
                 {membership && (
-                  <Badge variant={membership.myRole === 'LEAD' ? 'success' : 'secondary'}>
+                  <Badge variant={membership.myRole === 'LEAD' ? 'default' : 'secondary'}>
                     {membership.myRole === 'LEAD' ? 'Тимлид' : 'Разработчик'}
                   </Badge>
                 )}
               </div>
 
               {/* Metric cards */}
-              <div className='grid gap-4 md:grid-cols-2'>
+              <div className='grid gap-5 md:grid-cols-2'>
                 <CycleTimeMrCard
                   personal={team.personal.cycle_time_mr}
                   baseline={team.baseline.cycle_time_mr}
                 />
                 <MrSizeCard personal={team.personal.mr_size} baseline={team.baseline.mr_size} />
               </div>
-            </div>
+            </section>
           );
         })}
 
       {/* GitLab identities info */}
       {metrics && metrics.gitlabUsernames.length > 0 && (
-        <p className='text-xs text-muted-foreground'>
+        <div className='rounded-lg border border-border/60 bg-muted/40 px-4 py-3 text-xs text-muted-foreground text-balance'>
           Личные метрики посчитаны для аккаунтов GitLab:{' '}
-          {metrics.gitlabUsernames.map((u) => <code key={u} className='bg-muted px-1 rounded'>{u}</code>).reduce(
-            (acc, el, i) => (i === 0 ? [el] : [...acc, ', ', el]),
-            [] as React.ReactNode[]
-          )}
-        </p>
+          <span className='inline-flex flex-wrap gap-1.5'>
+            {metrics.gitlabUsernames.map((u) => (
+              <code
+                key={u}
+                className='rounded-md border border-primary/20 bg-primary/10 px-1.5 py-0.5 font-mono text-[11px] text-primary'
+              >
+                @{u}
+              </code>
+            ))}
+          </span>
+        </div>
       )}
 
       <FormulaBlock entries={ME_FORMULAS} />

@@ -29,6 +29,13 @@
       "when": 1779565074072,
       "tag": "0003_lucky_blonde_phantom",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1779620795596,
+      "tag": "0004_open_wrecker",
+      "breakpoints": true
     }
   ]
 }

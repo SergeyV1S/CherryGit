@@ -189,11 +189,11 @@ export default function AdminUsersPage() {
   };
 
   return (
-    <div className='p-6 space-y-6 max-w-6xl'>
-      <div className='flex items-center justify-between'>
-        <div>
-          <h1 className='text-2xl font-bold tracking-tight'>Пользователи</h1>
-          <p className='text-muted-foreground text-sm mt-1'>Управление учётными записями</p>
+    <div className='page-shell'>
+      <div className='flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between'>
+        <div className='min-w-0'>
+          <h1 className='page-title'>Пользователи</h1>
+          <p className='page-subtitle text-balance'>Управление учётными записями</p>
         </div>
         <div className='flex gap-2'>
           <Button

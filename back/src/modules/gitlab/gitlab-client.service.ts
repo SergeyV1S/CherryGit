@@ -9,6 +9,7 @@ import type {
   GitlabMergeRequestDiff,
   GitlabNote,
   GitlabProject,
+  GitlabProjectMember,
   GitlabTag,
   GitlabUser
 } from './types/gitlab-api.types';
@@ -108,6 +109,31 @@ export class GitlabClient {
   /** Один проект по его числовому ID на стороне GitLab. */
   async fetchProject(gitlabProjectId: number): Promise<GitlabProject> {
     return this.requestJson<GitlabProject>('GET', `/projects/${gitlabProjectId}`);
+  }
+
+  /**
+   * Все участники проекта (включая унаследованных из groups).
+   *
+   * Используется discovery-сервисом: после получения списка проектов админ
+   * запрашивает members каждого проекта, чтобы наполнить `gitlab_users` и
+   * `project_gitlab_users`. Endpoint /members/all возвращает и прямых
+   * членов, и тех кто унаследован из родительского group/subgroup —
+   * это полезнее /members (который отдаёт только direct).
+   *
+   * Документация: https://docs.gitlab.com/api/members/#list-all-members-of-a-group-or-project-including-inherited-and-invited-members
+   */
+  async fetchProjectMembers(gitlabProjectId: number): Promise<GitlabProjectMember[]> {
+    return this.paginate<GitlabProjectMember>(`/projects/${gitlabProjectId}/members/all`);
+  }
+
+  /**
+   * Полный профиль пользователя GitLab по числовому ID — нужен для discovery,
+   * чтобы дотянуть `public_email` (отсутствует в ответе /members/all).
+   *
+   * Документация: https://docs.gitlab.com/api/users/#get-a-single-user
+   */
+  async fetchUserById(gitlabUserId: number): Promise<GitlabUser> {
+    return this.requestJson<GitlabUser>('GET', `/users/${gitlabUserId}`);
   }
 
   /**

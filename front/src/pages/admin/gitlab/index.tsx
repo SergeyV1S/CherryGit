@@ -157,11 +157,11 @@ export default function AdminGitlabPage() {
   });
 
   return (
-    <div className='p-6 space-y-6 max-w-4xl'>
-      <div className='flex items-center justify-between'>
-        <div>
-          <h1 className='text-2xl font-bold tracking-tight'>GitLab подключения</h1>
-          <p className='text-muted-foreground text-sm mt-1'>
+    <div className='page-shell'>
+      <div className='flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between'>
+        <div className='min-w-0'>
+          <h1 className='page-title'>GitLab подключения</h1>
+          <p className='page-subtitle text-balance'>
             Управление подключениями к GitLab-инстансам
           </p>
         </div>

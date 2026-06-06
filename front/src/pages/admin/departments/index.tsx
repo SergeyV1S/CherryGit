@@ -185,11 +185,11 @@ export default function AdminDepartmentsPage() {
   });
 
   return (
-    <div className='p-6 space-y-6 max-w-4xl'>
-      <div className='flex items-center justify-between'>
-        <div>
-          <h1 className='text-2xl font-bold tracking-tight'>Отделы</h1>
-          <p className='text-muted-foreground text-sm mt-1'>Структура организации</p>
+    <div className='page-shell'>
+      <div className='flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between'>
+        <div className='min-w-0'>
+          <h1 className='page-title'>Отделы</h1>
+          <p className='page-subtitle text-balance'>Структура организации</p>
         </div>
         <Button className='gap-2' onClick={() => setShowCreate(true)}>
           <Plus size={16} />

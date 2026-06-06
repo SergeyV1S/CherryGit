@@ -95,10 +95,12 @@ const assertUserExists = async (uid: string): Promise<typeof users.$inferSelect>
  * для UI бейджей «Backend · 3 команды · 1 руководитель».
  */
 export const listDepartments = async () => {
+  // Алиасы колонок должны быть РАЗНЫМИ — иначе Postgres ругается
+  // `column reference "cnt" is ambiguous` после двойного leftJoin.
   const teamsCount = db
     .select({
       departmentUid: teams.departmentUid,
-      cnt: sql<number>`count(*)::int`.as('cnt')
+      teamCnt: sql<number>`count(*)::int`.as('team_cnt')
     })
     .from(teams)
     .groupBy(teams.departmentUid)
@@ -107,7 +109,7 @@ export const listDepartments = async () => {
   const headsCount = db
     .select({
       departmentUid: users.departmentUid,
-      cnt: sql<number>`count(*)::int`.as('cnt')
+      headCnt: sql<number>`count(*)::int`.as('head_cnt')
     })
     .from(users)
     .where(eq(users.role, 'HEAD'))
@@ -121,8 +123,8 @@ export const listDepartments = async () => {
       description: departments.description,
       createdAt: departments.createdAt,
       updatedAt: departments.updatedAt,
-      teamCount: sql<number>`COALESCE(${teamsCount.cnt}, 0)::int`,
-      headCount: sql<number>`COALESCE(${headsCount.cnt}, 0)::int`
+      teamCount: sql<number>`COALESCE(${teamsCount.teamCnt}, 0)::int`,
+      headCount: sql<number>`COALESCE(${headsCount.headCnt}, 0)::int`
     })
     .from(departments)
     .leftJoin(teamsCount, eq(teamsCount.departmentUid, departments.uid))

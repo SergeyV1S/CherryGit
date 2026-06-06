@@ -1,2 +1,2 @@
-ALTER TABLE "merge_requests" ADD COLUMN "file_paths" text[] DEFAULT  NOT NULL;--> statement-breakpoint
+ALTER TABLE "merge_requests" ADD COLUMN "file_paths" text[] DEFAULT '{}'::text[] NOT NULL;--> statement-breakpoint
 ALTER TABLE "metrics_snapshots" ADD CONSTRAINT "uq_snapshot_per_period" UNIQUE("metric_type","entity_type","entity_id","period_start","period_end");

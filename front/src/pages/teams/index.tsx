@@ -41,6 +41,7 @@ const BF_FORMULAS = [
 
 import { BusFactorTable } from './components/BusFactorTable';
 import { TeamCycleTimeMrCard } from './components/TeamCycleTimeMrCard';
+import { TeamDoraPanel } from './components/TeamDoraPanel';
 import { TeamMrSizeCard } from './components/TeamMrSizeCard';
 import { TeamSelector } from './components/TeamSelector';
 import { PeriodSelector } from '../me/components/PeriodSelector';
@@ -52,7 +53,25 @@ function getPeriodDates(days: number): { periodStart: Date; periodEnd: Date } {
   return { periodStart, periodEnd };
 }
 
-type TabKey = 'metrics' | 'bus-factor';
+type TabKey = 'metrics' | 'dora' | 'bus-factor';
+
+const DORA_FORMULAS = [
+  {
+    name: 'Lead Time for Changes',
+    formula: 'deployedAt − MIN(commits.committedAt for c in mr_commits)',
+    description: 'Время от первого коммита MR до его деплоя в продакшен (отображается медиана и p90).'
+  },
+  {
+    name: 'Deployment Frequency',
+    formula: 'count(successful_deploys) / period; per-day категоризация DORA (elite/high/medium/low)',
+    description: 'Частота деплоев в продакшен. Парная метрика к Change Failure Rate (FR-06).'
+  },
+  {
+    name: 'Change Failure Rate',
+    formula: 'count(deploys с isHotfix OR isRevert) / count(all deploys) × 100%',
+    description: 'Доля деплоев, потребовавших хотфикса или отката. Метки определяются админом в настройках проекта.'
+  }
+];
 
 function TeamDashboard({ teamUid }: { teamUid: string }) {
   const navigate = useNavigate();
@@ -84,7 +103,7 @@ function TeamDashboard({ teamUid }: { teamUid: string }) {
   const teamName = membership?.name ?? 'Команда';
 
   return (
-    <div className='p-6 space-y-6 max-w-5xl'>
+    <div className='page-shell'>
       {/* Header */}
       <div className='flex items-center gap-3'>
         <Button variant='ghost' size='icon-sm' onClick={() => navigate('/teams')}>
@@ -92,7 +111,7 @@ function TeamDashboard({ teamUid }: { teamUid: string }) {
         </Button>
         <div className='flex-1'>
           <div className='flex items-center gap-2'>
-            <h1 className='text-2xl font-bold tracking-tight'>{teamName}</h1>
+            <h1 className='page-title text-balance'>{teamName}</h1>
             {membership && (
               <Badge variant={membership.myRole === 'LEAD' ? 'success' : 'secondary'}>
                 {membership.myRole === 'LEAD' ? 'Тимлид' : 'Разработчик'}
@@ -114,6 +133,16 @@ function TeamDashboard({ teamUid }: { teamUid: string }) {
           }`}
         >
           Метрики
+        </button>
+        <button
+          onClick={() => setActiveTab('dora')}
+          className={`pb-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'dora'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          DORA
         </button>
         <button
           onClick={() => setActiveTab('bus-factor')}
@@ -160,6 +189,21 @@ function TeamDashboard({ teamUid }: { teamUid: string }) {
           )}
 
           <FormulaBlock entries={METRICS_FORMULAS} />
+        </div>
+      )}
+
+      {/* DORA tab */}
+      {activeTab === 'dora' && (
+        <div className='space-y-6'>
+          <div className='flex justify-end'>
+            <PeriodSelector selected={periodDays} onChange={setPeriodDays} />
+          </div>
+          <TeamDoraPanel
+            teamUid={teamUid}
+            periodStart={periodStart}
+            periodEnd={periodEnd}
+          />
+          <FormulaBlock entries={DORA_FORMULAS} />
         </div>
       )}
 

@@ -1,10 +1,11 @@
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 
 import type { RoleType } from '@/db/drizzle/schema/user/types/role.type';
 
 import { db } from '@/db/drizzle/connect';
 import { departments } from '@/db/drizzle/schema/departments/schema';
-import { projects } from '@/db/drizzle/schema/gitlab/schema';
+import { commits, mergeRequests, mrReviews } from '@/db/drizzle/schema/git-data/schema';
+import { projects, userGitlabIdentities } from '@/db/drizzle/schema/gitlab/schema';
 import { teamMembers, teamProjects, teams } from '@/db/drizzle/schema/teams/schema';
 import { users } from '@/db/drizzle/schema/user/schema';
 import { logger } from '@/lib/loger';
@@ -350,12 +351,12 @@ export const deleteTeam = async (actorUid: string, uid: string) => {
 const listMembersByTeam = async (teamUid: string) =>
   db
     .select({
-      memberUid: teamMembers.uid,
+      uid: teamMembers.uid,
       userUid: users.uid,
       firstName: users.firstName,
       secondName: users.secondName,
       mail: users.mail,
-      teamRole: teamMembers.role,
+      role: teamMembers.role,
       joinedAt: teamMembers.joinedAt
     })
     .from(teamMembers)
@@ -366,6 +367,157 @@ const listMembersByTeam = async (teamUid: string) =>
 export const listMembers = async (teamUid: string) => {
   await assertTeamExists(teamUid);
   return listMembersByTeam(teamUid);
+};
+
+/**
+ * Кандидаты в команду из синхронизированных GitLab-данных.
+ *
+ * Собирает уникальных авторов коммитов / MR / ревью по ВСЕМ проектам
+ * команды и обогащает запись:
+ *   — `mappedUser` — если этот gitlabUsername привязан к CherryGit-юзеру
+ *     через `user_gitlab_identities` (per-connection lookup);
+ *   — `alreadyInTeam` — true, если этот юзер уже в `team_members`.
+ *
+ * Admin-UI использует это для one-click добавления без ручного ввода UID.
+ * Кандидаты без `mappedUser` показываются с пометкой «нет CherryGit-юзера» —
+ * админ должен сначала создать пользователя и привязать identity через
+ * users-admin (4.3) или /admin/users/gitlab-identities/reconcile.
+ *
+ * Сортировка — по убыванию общей активности (commits+MRs+reviews).
+ */
+export const listCandidatesFromGitlab = async (teamUid: string) => {
+  await assertTeamExists(teamUid);
+
+  // 1. Проекты команды + их GitLab-connection (для per-connection identity lookup).
+  const projectRows = await db
+    .select({
+      projectUid: teamProjects.projectUid,
+      gitlabConnectionUid: projects.gitlabConnectionUid
+    })
+    .from(teamProjects)
+    .innerJoin(projects, eq(projects.uid, teamProjects.projectUid))
+    .where(eq(teamProjects.teamUid, teamUid));
+
+  if (projectRows.length === 0) return [];
+
+  const projectUids = projectRows.map((r) => r.projectUid);
+  const connectionUids = [...new Set(projectRows.map((r) => r.gitlabConnectionUid))];
+
+  // 2. Параллельно — счётчики по gitlabUsername из commits / MRs / reviews.
+  const [commitRows, mrRows, reviewRows] = await Promise.all([
+    db
+      .select({
+        username: commits.authorGitlabUsername,
+        cnt: sql<number>`count(*)::int`.as('cnt')
+      })
+      .from(commits)
+      .where(inArray(commits.projectUid, projectUids))
+      .groupBy(commits.authorGitlabUsername),
+    db
+      .select({
+        username: mergeRequests.authorGitlabUsername,
+        cnt: sql<number>`count(*)::int`.as('cnt')
+      })
+      .from(mergeRequests)
+      .where(inArray(mergeRequests.projectUid, projectUids))
+      .groupBy(mergeRequests.authorGitlabUsername),
+    db
+      .select({
+        username: mrReviews.reviewerGitlabUsername,
+        cnt: sql<number>`count(*)::int`.as('cnt')
+      })
+      .from(mrReviews)
+      .innerJoin(mergeRequests, eq(mergeRequests.uid, mrReviews.mergeRequestUid))
+      .where(inArray(mergeRequests.projectUid, projectUids))
+      .groupBy(mrReviews.reviewerGitlabUsername)
+  ]);
+
+  interface Candidate {
+    commitsCount: number;
+    gitlabUsername: string;
+    mrsCount: number;
+    reviewsCount: number;
+  }
+  const map = new Map<string, Candidate>();
+  const bump = (
+    username: string,
+    key: 'commitsCount' | 'mrsCount' | 'reviewsCount',
+    cnt: number
+  ) => {
+    const existing = map.get(username) ?? {
+      gitlabUsername: username,
+      commitsCount: 0,
+      mrsCount: 0,
+      reviewsCount: 0
+    };
+    existing[key] = Number(cnt);
+    map.set(username, existing);
+  };
+  commitRows.forEach((r) => bump(r.username, 'commitsCount', r.cnt));
+  mrRows.forEach((r) => bump(r.username, 'mrsCount', r.cnt));
+  reviewRows.forEach((r) => bump(r.username, 'reviewsCount', r.cnt));
+
+  if (map.size === 0) return [];
+
+  // 3. Резолв username → CherryGit-юзер через identities (per-connection scope).
+  const usernames = [...map.keys()];
+  const identityRows = await db
+    .select({
+      gitlabUsername: userGitlabIdentities.gitlabUsername,
+      userUid: users.uid,
+      firstName: users.firstName,
+      secondName: users.secondName,
+      mail: users.mail
+    })
+    .from(userGitlabIdentities)
+    .innerJoin(users, eq(users.uid, userGitlabIdentities.userUid))
+    .where(
+      and(
+        inArray(userGitlabIdentities.gitlabConnectionUid, connectionUids),
+        inArray(userGitlabIdentities.gitlabUsername, usernames)
+      )
+    );
+  const identityByUsername = new Map<string, (typeof identityRows)[number]>();
+  identityRows.forEach((r) => identityByUsername.set(r.gitlabUsername, r));
+
+  // 4. Кто из резолвнутых уже в команде.
+  const mappedUserUids = identityRows.map((r) => r.userUid);
+  const inTeamRows =
+    mappedUserUids.length > 0
+      ? await db
+          .select({ userUid: teamMembers.userUid })
+          .from(teamMembers)
+          .where(
+            and(eq(teamMembers.teamUid, teamUid), inArray(teamMembers.userUid, mappedUserUids))
+          )
+      : [];
+  const inTeamSet = new Set(inTeamRows.map((r) => r.userUid));
+
+  // 5. Итог: enriched + sort by total activity desc.
+  return Array.from(map.values(), (c) => {
+      const identity = identityByUsername.get(c.gitlabUsername);
+      const mappedUser = identity
+        ? {
+            uid: identity.userUid,
+            firstName: identity.firstName,
+            secondName: identity.secondName,
+            mail: identity.mail
+          }
+        : null;
+      return {
+        gitlabUsername: c.gitlabUsername,
+        commitsCount: c.commitsCount,
+        mrsCount: c.mrsCount,
+        reviewsCount: c.reviewsCount,
+        mappedUser,
+        alreadyInTeam: mappedUser ? inTeamSet.has(mappedUser.uid) : false
+      };
+    })
+    .sort(
+      (a, b) =>
+        b.commitsCount + b.mrsCount + b.reviewsCount -
+        (a.commitsCount + a.mrsCount + a.reviewsCount)
+    );
 };
 
 export const addMember = async (actorUid: string, teamUid: string, dto: AddTeamMemberDto) => {
