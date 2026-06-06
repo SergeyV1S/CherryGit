@@ -3,7 +3,24 @@ import { ArrowDown, ArrowUp, Clock, Info, Minus } from '@phosphor-icons/react';
 import { formatCycleTimeDiff, formatSeconds } from '@shared/lib/format';
 import { cn } from '@shared/lib/utils';
 import type { CycleTimeMrValue } from '@shared/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@shared/ui';
+import { Card, CardContent, CardHeader, CardTitle, FormulaTooltip } from '@shared/ui';
+import type { FormulaEntry } from '@shared/ui';
+
+const CYCLE_TIME_MR_FORMULAS: FormulaEntry[] = [
+  {
+    name: 'Cycle Time MR — медиана',
+    formula: 'median(closedAt − createdAt) по merged MR за период',
+    description:
+      'Время жизни MR от открытия до мержа. Личное значение сравнивается с командным baseline.',
+    note: 'Черновики (draft) исключаются из выборки.'
+  },
+  {
+    name: 'Фазы Cycle Time',
+    formula:
+      'Фаза 1: firstReviewAt − createdAt\nФаза 2: approvedAt − firstReviewAt\nФаза 3: mergedAt − approvedAt',
+    description: 'Декомпозиция времени ожидания по фазам жизненного цикла MR.'
+  }
+];
 
 interface PhaseRowProps {
   label: string;
@@ -15,7 +32,7 @@ interface PhaseRowProps {
 function PhaseRow({ label, personal, baseline, sampleSize }: PhaseRowProps) {
   const diff = formatCycleTimeDiff(personal, baseline);
   return (
-    <div className='flex items-center gap-2 py-1.5 border-b last:border-0'>
+    <div className='flex items-center gap-3 px-3 py-2.5 border-b last:border-0'>
       <div className='flex-1 min-w-0'>
         <p className='text-xs text-muted-foreground truncate'>{label}</p>
         <p className='text-sm font-medium'>{formatSeconds(personal)}</p>
@@ -66,15 +83,18 @@ export function CycleTimeMrCard({ personal, baseline }: CycleTimeMrCardProps) {
             <Clock size={18} className='text-primary' weight='duotone' />
             <CardTitle className='text-base'>Cycle Time MR</CardTitle>
           </div>
-          {personal.sampleSize === 0 ? (
-            <span className='text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full'>
-              нет MR за период
-            </span>
-          ) : (
-            <span className='text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full'>
-              {personal.sampleSize} MR
-            </span>
-          )}
+          <div className='flex items-center gap-2'>
+            {personal.sampleSize === 0 ? (
+              <span className='text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full'>
+                нет MR за период
+              </span>
+            ) : (
+              <span className='text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full'>
+                {personal.sampleSize} MR
+              </span>
+            )}
+            <FormulaTooltip entries={CYCLE_TIME_MR_FORMULAS} />
+          </div>
         </div>
       </CardHeader>
 

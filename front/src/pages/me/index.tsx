@@ -5,26 +5,7 @@ import { GitBranch, Warning } from '@phosphor-icons/react';
 
 import { meApi } from '@shared/api/me.api';
 import { useAuth } from '@shared/hooks';
-import { Badge, Card, CardContent, FormulaBlock } from '@shared/ui';
-
-const ME_FORMULAS = [
-  {
-    name: 'Cycle Time MR — медиана',
-    formula: 'median(closedAt − createdAt) по merged MR за период',
-    description: 'Время жизни MR от открытия до мержа. Личное значение сравнивается с командным baseline.',
-    note: 'Черновики (draft) исключаются из выборки.'
-  },
-  {
-    name: 'Фазы Cycle Time',
-    formula: 'Фаза 1: firstReviewAt − createdAt | Фаза 2: approvedAt − firstReviewAt | Фаза 3: mergedAt − approvedAt',
-    description: 'Декомпозиция времени ожидания по фазам жизненного цикла MR.'
-  },
-  {
-    name: 'MR Size — распределение',
-    formula: 'Бакеты по linesChanged: ≤50, 51–200, 201–400, 401–800, >800',
-    description: 'Распределение MR по суммарному количеству изменённых строк (additions + deletions).'
-  }
-];
+import { Badge, Card, CardContent } from '@shared/ui';
 
 import { CycleTimeMrCard } from './components/CycleTimeMrCard';
 import { MrSizeCard } from './components/MrSizeCard';
@@ -198,8 +179,6 @@ export default function MePage() {
           </span>
         </div>
       )}
-
-      <FormulaBlock entries={ME_FORMULAS} />
     </div>
   );
 }

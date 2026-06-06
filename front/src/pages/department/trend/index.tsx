@@ -6,23 +6,27 @@ import { doraApi } from '@shared/api/dora.api';
 import { formatSeconds } from '@shared/lib/format';
 import { cn } from '@shared/lib/utils';
 import type { CrossTeamDoraTeam, DeploymentFrequencyCategory } from '@shared/types';
-import { Card, CardContent, CardHeader, CardTitle, FormulaBlock } from '@shared/ui';
+import { Card, CardContent, CardHeader, CardTitle, FormulaTooltip } from '@shared/ui';
+import type { FormulaEntry } from '@shared/ui';
 
-const TREND_FORMULAS = [
+const TREND_FORMULAS: FormulaEntry[] = [
   {
     name: 'Lead Time for Changes',
     formula: 'median(deployedAt − MIN(commits.committedAt)) по деплоям за период',
-    description: 'Время от первого коммита до деплоя. Чем меньше — тем быстрее команда доставляет изменения.'
+    description:
+      'Время от первого коммита до деплоя. Чем меньше — тем быстрее команда доставляет изменения.'
   },
   {
     name: 'Deployment Frequency',
     formula: 'count(деплоев) / periodDays',
-    description: 'Частота деплоев за период. Elite: >1/день, High: день–неделя, Medium: неделя–месяц, Low: реже.'
+    description:
+      'Частота деплоев за период. Elite: >1/день, High: день–неделя, Medium: неделя–месяц, Low: реже.'
   },
   {
     name: 'Change Failure Rate',
     formula: 'count(hotfix/revert) / count(всех деплоев) × 100%',
-    description: 'Нижнее значение CFR — лучше. Метрика качества, всегда показывается рядом с Deployment Frequency.'
+    description:
+      'Нижнее значение CFR — лучше. Метрика качества, всегда показывается рядом с Deployment Frequency.'
   }
 ];
 
@@ -166,7 +170,10 @@ export default function DepartmentTrendPage() {
           {/* Comparison table */}
           <Card>
             <CardHeader className='pb-2'>
-              <CardTitle className='text-base'>Сравнение команд за период</CardTitle>
+              <div className='flex items-center justify-between gap-2'>
+                <CardTitle className='text-base'>Сравнение команд за период</CardTitle>
+                <FormulaTooltip entries={TREND_FORMULAS} />
+              </div>
             </CardHeader>
             <CardContent className='p-0'>
               <div className='overflow-x-auto'>
@@ -188,8 +195,6 @@ export default function DepartmentTrendPage() {
               </div>
             </CardContent>
           </Card>
-
-          <FormulaBlock entries={TREND_FORMULAS} />
 
           {/* Summary insights */}
           <div className='grid gap-3 sm:grid-cols-3'>

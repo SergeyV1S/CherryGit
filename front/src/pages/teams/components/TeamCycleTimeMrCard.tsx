@@ -2,7 +2,22 @@ import { Clock } from '@phosphor-icons/react';
 
 import { formatSeconds } from '@shared/lib/format';
 import type { CycleTimeMrValue } from '@shared/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@shared/ui';
+import { Card, CardContent, CardHeader, CardTitle, FormulaTooltip } from '@shared/ui';
+import type { FormulaEntry } from '@shared/ui';
+
+const CYCLE_TIME_MR_FORMULAS: FormulaEntry[] = [
+  {
+    name: 'Cycle Time MR — медиана',
+    formula: 'median(mergedAt − createdAt) по merged MR за период',
+    description: 'Полное время жизни MR команды. Черновики (draft) исключаются из выборки.'
+  },
+  {
+    name: 'Фазы Cycle Time',
+    formula:
+      'До ревью: firstReviewAt − createdAt\nВ ревью: approvedAt − firstReviewAt\nПосле апрува: mergedAt − approvedAt',
+    description: 'Декомпозиция по фазам помогает определить, где теряется время.'
+  }
+];
 
 interface TeamCycleTimeMrCardProps {
   value: CycleTimeMrValue;
@@ -17,15 +32,18 @@ export function TeamCycleTimeMrCard({ value }: TeamCycleTimeMrCardProps) {
             <Clock size={18} className='text-primary' weight='duotone' />
             <CardTitle className='text-base'>Cycle Time MR</CardTitle>
           </div>
-          {value.sampleSize === 0 ? (
-            <span className='text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full'>
-              нет MR за период
-            </span>
-          ) : (
-            <span className='text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full'>
-              {value.sampleSize} MR
-            </span>
-          )}
+          <div className='flex items-center gap-2'>
+            {value.sampleSize === 0 ? (
+              <span className='text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full'>
+                нет MR за период
+              </span>
+            ) : (
+              <span className='text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full'>
+                {value.sampleSize} MR
+              </span>
+            )}
+            <FormulaTooltip entries={CYCLE_TIME_MR_FORMULAS} />
+          </div>
         </div>
       </CardHeader>
 
@@ -70,7 +88,7 @@ export function TeamCycleTimeMrCard({ value }: TeamCycleTimeMrCardProps) {
                 n: value.sampleSizePerPhase.timeToMergeAfterApproval
               }
             ].map((phase) => (
-              <div key={phase.label} className='flex items-center gap-3 px-3 py-2 border-b last:border-0'>
+              <div key={phase.label} className='flex items-center gap-3 px-3 py-2.5 border-b last:border-0'>
                 <div className='flex-1 min-w-0'>
                   <p className='text-xs text-muted-foreground'>{phase.label}</p>
                 </div>

@@ -10,7 +10,37 @@ import type {
   DeploymentFrequencyValue,
   LeadTimeValue
 } from '@shared/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@shared/ui';
+import { Card, CardContent, CardHeader, CardTitle, FormulaTooltip } from '@shared/ui';
+import type { FormulaEntry } from '@shared/ui';
+
+const LEAD_TIME_FORMULAS: FormulaEntry[] = [
+  {
+    name: 'Lead Time for Changes',
+    formula: 'LT = deployedAt − MIN(commits.committedAt) по MR деплоя',
+    description:
+      'Время от первого коммита MR до его деплоя в продакшен. Отображается медиана и 90-й перцентиль.'
+  }
+];
+
+const DEPLOYMENT_FREQUENCY_FORMULAS: FormulaEntry[] = [
+  {
+    name: 'Deployment Frequency',
+    formula: 'DF = count(successful_deploys) / period\nКатегории per-day: elite / high / medium / low',
+    description:
+      'Частота деплоев в продакшен. Парная метрика к Change Failure Rate (FR-06).',
+    note: 'Деплои определяются по тегам GitLab с настраиваемым паттерном (например v*).'
+  }
+];
+
+const CHANGE_FAILURE_RATE_FORMULAS: FormulaEntry[] = [
+  {
+    name: 'Change Failure Rate',
+    formula: 'CFR = count(deploys с isHotfix OR isRevert) / count(all deploys) × 100%',
+    description:
+      'Доля деплоев, потребовавших хотфикса или отката. Elite: ≤15%, High: ≤30%, Medium: ≤45%, Low: >45%.',
+    note: 'Хотфиксы и откаты определяются по labels MR (configurable админом).'
+  }
+];
 
 const CATEGORY_LABEL: Record<DeploymentFrequencyCategory, string> = {
   elite: 'Elite',
@@ -65,10 +95,13 @@ function LeadTimeCard({ value }: { value: LeadTimeValue }) {
   return (
     <Card>
       <CardHeader className='pb-2'>
-        <CardTitle className='text-base flex items-center gap-2'>
-          <Gauge size={16} weight='duotone' />
-          Lead Time for Changes
-        </CardTitle>
+        <div className='flex items-center justify-between gap-2'>
+          <CardTitle className='text-base flex items-center gap-2'>
+            <Gauge size={16} weight='duotone' />
+            Lead Time for Changes
+          </CardTitle>
+          <FormulaTooltip entries={LEAD_TIME_FORMULAS} />
+        </div>
       </CardHeader>
       <CardContent className='space-y-3'>
         <div className='grid grid-cols-2 gap-4'>
@@ -101,11 +134,14 @@ function DeploymentFrequencyCard({ value }: { value: DeploymentFrequencyValue })
   return (
     <Card>
       <CardHeader className='pb-2'>
-        <CardTitle className='text-base flex items-center gap-2'>
-          <Rocket size={16} weight='duotone' />
-          Deployment Frequency
-          <CategoryBadge category={value.category} />
-        </CardTitle>
+        <div className='flex items-center justify-between gap-2'>
+          <CardTitle className='text-base flex items-center gap-2'>
+            <Rocket size={16} weight='duotone' />
+            Deployment Frequency
+            <CategoryBadge category={value.category} />
+          </CardTitle>
+          <FormulaTooltip entries={DEPLOYMENT_FREQUENCY_FORMULAS} />
+        </div>
       </CardHeader>
       <CardContent className='space-y-3'>
         <div className='grid grid-cols-2 gap-4'>
@@ -142,11 +178,14 @@ function ChangeFailureRateCard({ value }: { value: ChangeFailureRateValue }) {
   return (
     <Card>
       <CardHeader className='pb-2'>
-        <CardTitle className='text-base flex items-center gap-2'>
-          <Warning size={16} weight='duotone' />
-          Change Failure Rate
-          <CategoryBadge category={value.category} />
-        </CardTitle>
+        <div className='flex items-center justify-between gap-2'>
+          <CardTitle className='text-base flex items-center gap-2'>
+            <Warning size={16} weight='duotone' />
+            Change Failure Rate
+            <CategoryBadge category={value.category} />
+          </CardTitle>
+          <FormulaTooltip entries={CHANGE_FAILURE_RATE_FORMULAS} />
+        </div>
       </CardHeader>
       <CardContent className='space-y-3'>
         <div className='grid grid-cols-3 gap-4'>

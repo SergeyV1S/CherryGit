@@ -6,4 +6,5 @@ export { Input } from './input';
 export { Label } from './label';
 export { Separator } from './separator';
 export * from './typography';
-export { FormulaBlock, MetricTooltip } from './formula-block';
+export { FormulaTooltip } from './formula-block';
+export type { FormulaEntry } from './formula-block';

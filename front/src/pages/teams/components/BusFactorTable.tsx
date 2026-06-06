@@ -1,7 +1,23 @@
 import type { BusFactorModule, BusFactorValue } from '@shared/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@shared/ui';
+import { Card, CardContent, CardHeader, CardTitle, FormulaTooltip } from '@shared/ui';
+import type { FormulaEntry } from '@shared/ui';
 import { Tree } from '@phosphor-icons/react';
 import { cn } from '@shared/lib/utils';
+
+const BUS_FACTOR_FORMULAS: FormulaEntry[] = [
+  {
+    name: 'Bus Factor по модулю',
+    formula: 'count(distinct authors | merged MR touching module, last 90 days)',
+    description:
+      'Число активных контрибьюторов модуля за 90 дней. Красный — 1 автор (критический риск), жёлтый — 2, зелёный — ≥3.'
+  },
+  {
+    name: 'Определение модуля',
+    formula: 'Первая директория пути файла (авто) или явная настройка code_modules',
+    description:
+      'Автоматические модули берут первую директорию пути. Явные задаются администратором через code_modules.'
+  }
+];
 
 const COLOR_MAP: Record<string, { badge: string; label: string }> = {
   red: { badge: 'bg-red-100 text-red-700 border-red-200', label: 'Критический риск' },
@@ -12,7 +28,7 @@ const COLOR_MAP: Record<string, { badge: string; label: string }> = {
 function ModuleRow({ module }: { module: BusFactorModule }) {
   const color = COLOR_MAP[module.color] ?? COLOR_MAP.red;
   return (
-    <div className='flex items-center gap-3 py-2 border-b last:border-0'>
+    <div className='flex items-center gap-3 px-3 py-2.5 border-b last:border-0'>
       <div className='flex-1 min-w-0'>
         <div className='flex items-center gap-2'>
           <span className='text-sm font-medium truncate'>{module.name}</span>
@@ -62,9 +78,12 @@ export function BusFactorTable({ value }: BusFactorTableProps) {
             <Tree size={18} className='text-primary' weight='duotone' />
             <CardTitle className='text-base'>Bus Factor по модулям</CardTitle>
           </div>
-          <span className='text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full'>
-            окно {value.windowDays} дней
-          </span>
+          <div className='flex items-center gap-2'>
+            <span className='text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full'>
+              окно {value.windowDays} дней
+            </span>
+            <FormulaTooltip entries={BUS_FACTOR_FORMULAS} />
+          </div>
         </div>
       </CardHeader>
       <CardContent className='space-y-4'>

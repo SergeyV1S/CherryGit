@@ -6,38 +6,7 @@ import { useNavigate, useParams } from 'react-router';
 
 import { teamsApi } from '@shared/api/teams.api';
 import { useAuth } from '@shared/hooks';
-import { Badge, Button, Card, CardContent, FormulaBlock } from '@shared/ui';
-
-const METRICS_FORMULAS = [
-  {
-    name: 'Cycle Time MR — медиана',
-    formula: 'median(mergedAt − createdAt) по merged MR за период',
-    description: 'Полное время жизни MR. Черновики (draft) исключаются.'
-  },
-  {
-    name: 'Фазы Cycle Time',
-    formula: 'До ревью: firstReviewAt − createdAt | В ревью: approvedAt − firstReviewAt | После апрува: mergedAt − approvedAt',
-    description: 'Декомпозиция по фазам помогает определить, где теряется время.'
-  },
-  {
-    name: 'MR Size',
-    formula: 'linesAdded + linesRemoved → бакеты: ≤50, 51–200, 201–400, 401–800, >800',
-    description: 'Распределение по размеру. Большие MR коррелируют с длительным ревью.'
-  }
-];
-
-const BF_FORMULAS = [
-  {
-    name: 'Bus Factor по модулю',
-    formula: 'count(distinct authors | merged MR touching module, last 90 days)',
-    description: 'Число активных контрибьюторов модуля. Красный — 1 автор (критический риск), жёлтый — 2, зелёный — ≥3.'
-  },
-  {
-    name: 'Определение модуля',
-    formula: 'Первая директория пути файла (авто) или явная настройка code_modules',
-    description: 'Автоматические модули берут первую директорию пути. Явные задаются администратором через code_modules.'
-  }
-];
+import { Badge, Button, Card, CardContent } from '@shared/ui';
 
 import { BusFactorTable } from './components/BusFactorTable';
 import { TeamCycleTimeMrCard } from './components/TeamCycleTimeMrCard';
@@ -54,24 +23,6 @@ function getPeriodDates(days: number): { periodStart: Date; periodEnd: Date } {
 }
 
 type TabKey = 'metrics' | 'dora' | 'bus-factor';
-
-const DORA_FORMULAS = [
-  {
-    name: 'Lead Time for Changes',
-    formula: 'deployedAt − MIN(commits.committedAt for c in mr_commits)',
-    description: 'Время от первого коммита MR до его деплоя в продакшен (отображается медиана и p90).'
-  },
-  {
-    name: 'Deployment Frequency',
-    formula: 'count(successful_deploys) / period; per-day категоризация DORA (elite/high/medium/low)',
-    description: 'Частота деплоев в продакшен. Парная метрика к Change Failure Rate (FR-06).'
-  },
-  {
-    name: 'Change Failure Rate',
-    formula: 'count(deploys с isHotfix OR isRevert) / count(all deploys) × 100%',
-    description: 'Доля деплоев, потребовавших хотфикса или отката. Метки определяются админом в настройках проекта.'
-  }
-];
 
 function TeamDashboard({ teamUid }: { teamUid: string }) {
   const navigate = useNavigate();
@@ -187,8 +138,6 @@ function TeamDashboard({ teamUid }: { teamUid: string }) {
               </CardContent>
             </Card>
           )}
-
-          <FormulaBlock entries={METRICS_FORMULAS} />
         </div>
       )}
 
@@ -203,7 +152,6 @@ function TeamDashboard({ teamUid }: { teamUid: string }) {
             periodStart={periodStart}
             periodEnd={periodEnd}
           />
-          <FormulaBlock entries={DORA_FORMULAS} />
         </div>
       )}
 
@@ -224,8 +172,6 @@ function TeamDashboard({ teamUid }: { teamUid: string }) {
               </CardContent>
             </Card>
           )}
-
-          <FormulaBlock entries={BF_FORMULAS} />
         </div>
       )}
     </div>

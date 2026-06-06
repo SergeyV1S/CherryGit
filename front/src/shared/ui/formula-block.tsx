@@ -1,81 +1,59 @@
 import { useState } from 'react';
 
-import { CaretDown, CaretRight, Info } from '@phosphor-icons/react';
+import { Question } from '@phosphor-icons/react';
 
 import { cn } from '@shared/lib/utils';
 
-interface FormulaEntry {
+export interface FormulaEntry {
   name: string;
   formula: string;
   description: string;
   note?: string;
 }
 
-interface FormulaBlockProps {
+interface FormulaTooltipProps {
   entries: FormulaEntry[];
   className?: string;
+  align?: 'right' | 'left';
 }
 
-export function FormulaBlock({ entries, className }: FormulaBlockProps) {
-  const [open, setOpen] = useState(false);
+export function FormulaTooltip({ entries, className, align = 'right' }: FormulaTooltipProps) {
+  const [visible, setVisible] = useState(false);
 
   return (
-    <div className={cn('rounded-lg border bg-muted/20', className)}>
+    <span className={cn('relative inline-flex shrink-0', className)}>
       <button
-        onClick={() => setOpen(!open)}
-        className='w-full flex items-center gap-2 px-4 py-3 text-sm text-left hover:bg-muted/40 transition-colors rounded-lg'
+        type='button'
+        onMouseEnter={() => setVisible(true)}
+        onMouseLeave={() => setVisible(false)}
+        onFocus={() => setVisible(true)}
+        onBlur={() => setVisible(false)}
+        className='inline-flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50'
+        aria-label='Формула расчёта метрики'
       >
-        <Info size={16} className='text-muted-foreground shrink-0' />
-        <span className='font-medium flex-1'>Формулы расчёта метрик</span>
-        {open ? (
-          <CaretDown size={14} className='text-muted-foreground' />
-        ) : (
-          <CaretRight size={14} className='text-muted-foreground' />
-        )}
+        <Question size={16} weight='bold' />
       </button>
-
-      {open && (
-        <div className='px-4 pb-4 space-y-4 border-t mt-0 pt-4'>
+      {visible && (
+        <div
+          role='tooltip'
+          className={cn(
+            'absolute top-full mt-2 w-80 max-w-[min(20rem,90vw)] rounded-lg border bg-popover text-popover-foreground shadow-lg z-50 p-3 space-y-3 pointer-events-none',
+            align === 'right' ? 'right-0' : 'left-0'
+          )}
+        >
           {entries.map((entry, i) => (
             <div key={i} className='space-y-1.5'>
-              <p className='text-sm font-semibold'>{entry.name}</p>
-              <code className='block text-xs bg-background border rounded px-3 py-2 font-mono text-foreground'>
+              <p className='text-xs font-semibold leading-tight'>{entry.name}</p>
+              <code className='block text-[11px] bg-muted/70 border rounded px-2 py-1.5 font-mono whitespace-pre-wrap break-words leading-snug'>
                 {entry.formula}
               </code>
-              <p className='text-xs text-muted-foreground'>{entry.description}</p>
+              <p className='text-[11px] leading-snug text-muted-foreground'>{entry.description}</p>
               {entry.note && (
-                <p className='text-xs text-muted-foreground italic'>{entry.note}</p>
+                <p className='text-[11px] leading-snug italic text-muted-foreground'>{entry.note}</p>
               )}
             </div>
           ))}
         </div>
-      )}
-    </div>
-  );
-}
-
-interface MetricTooltipProps {
-  text: string;
-  children: React.ReactNode;
-}
-
-export function MetricTooltip({ text, children }: MetricTooltipProps) {
-  const [visible, setVisible] = useState(false);
-
-  return (
-    <span className='relative inline-flex items-center gap-1'>
-      {children}
-      <button
-        onMouseEnter={() => setVisible(true)}
-        onMouseLeave={() => setVisible(false)}
-        className='text-muted-foreground hover:text-foreground transition-colors'
-      >
-        <Info size={12} />
-      </button>
-      {visible && (
-        <span className='absolute bottom-full left-1/2 -translate-x-1/2 mb-1 w-56 text-xs bg-popover border rounded shadow-md p-2 z-50 text-foreground'>
-          {text}
-        </span>
       )}
     </span>
   );

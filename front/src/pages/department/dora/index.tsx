@@ -11,25 +11,29 @@ import type {
   DeploymentFrequencyValue,
   LeadTimeValue
 } from '@shared/types';
-import { Card, CardContent, CardHeader, CardTitle, FormulaBlock } from '@shared/ui';
+import { Card, CardContent, CardHeader, CardTitle, FormulaTooltip } from '@shared/ui';
+import type { FormulaEntry } from '@shared/ui';
 
-const DORA_FORMULAS = [
+const DORA_FORMULAS: FormulaEntry[] = [
   {
     name: 'Lead Time for Changes',
     formula: 'LT = deployedAt − MIN(commits.committedAt) по MR деплоя',
-    description: 'Время от первого коммита до деплоя в продакшен. Медиана и 90-й перцентиль по деплоям за период.'
+    description:
+      'Время от первого коммита до деплоя в продакшен. Медиана и 90-й перцентиль по деплоям за период.'
   },
   {
     name: 'Deployment Frequency',
     formula: 'DF = count(деплоев) / periodDays',
-    description: 'Частота деплоев. Elite: >1/день, High: 1–7 дней, Medium: 7–30 дней, Low: >30 дней.',
+    description:
+      'Частота деплоев. Elite: >1/день, High: 1–7 дней, Medium: 7–30 дней, Low: >30 дней.',
     note: 'Деплои определяются по тегам GitLab с настраиваемым паттерном (например v*).'
   },
   {
     name: 'Change Failure Rate',
     formula: 'CFR = count(hotfix/revert деплоев) / count(всех деплоев) × 100%',
-    description: 'Доля деплоев, потребовавших хотфикса или отката. Elite: ≤15%, High: ≤30%, Medium: ≤45%, Low: >45%.',
-    note: 'Хотфиксы и откаты определяются по labels MR (configurable). Всегда показывается рядом с DF (парная метрика).'
+    description:
+      'Доля деплоев, потребовавших хотфикса или отката. Elite: ≤15%, High: ≤30%, Medium: ≤45%, Low: >45%.',
+    note: 'Метки hotfix/revert настраиваются админом. Парная метрика к DF.'
   }
 ];
 
@@ -120,9 +124,12 @@ function TeamDoraCard({ team }: { team: CrossTeamDoraTeam }) {
       <CardHeader className='pb-2'>
         <div className='flex items-center justify-between gap-2'>
           <CardTitle className='text-base'>{team.teamName}</CardTitle>
-          <span className='text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full'>
-            {team.projectCount} проект
-          </span>
+          <div className='flex items-center gap-2'>
+            <span className='text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full'>
+              {team.projectCount} проект
+            </span>
+            <FormulaTooltip entries={DORA_FORMULAS} />
+          </div>
         </div>
       </CardHeader>
       <CardContent className='space-y-3'>
@@ -292,8 +299,6 @@ export default function DepartmentDoraPage() {
               <TeamDoraCard key={team.teamUid} team={team} />
             ))}
           </div>
-
-          <FormulaBlock entries={DORA_FORMULAS} />
         </>
       )}
     </div>

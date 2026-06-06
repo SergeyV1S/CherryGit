@@ -2,7 +2,18 @@ import { CodeBlock, Info } from '@phosphor-icons/react';
 
 import { cn } from '@shared/lib/utils';
 import type { MrSizeBucket, MrSizeValue } from '@shared/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@shared/ui';
+import { Card, CardContent, CardHeader, CardTitle, FormulaTooltip } from '@shared/ui';
+import type { FormulaEntry } from '@shared/ui';
+
+const MR_SIZE_FORMULAS: FormulaEntry[] = [
+  {
+    name: 'MR Size — распределение',
+    formula: 'size(MR) = linesAdded + linesRemoved\nБакеты: ≤50, 51–200, 201–400, 401–800, >800',
+    description:
+      'Распределение MR по суммарному количеству изменённых строк. Большие MR коррелируют с длительным ревью.',
+    note: 'Черновики (draft) исключаются из выборки.'
+  }
+];
 
 const BUCKET_COLORS = [
   'bg-green-500',
@@ -60,15 +71,18 @@ export function MrSizeCard({ personal, baseline }: MrSizeCardProps) {
             <CodeBlock size={18} className='text-primary' weight='duotone' />
             <CardTitle className='text-base'>Размер MR</CardTitle>
           </div>
-          {personal.sampleSize === 0 ? (
-            <span className='text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full'>
-              нет MR за период
-            </span>
-          ) : (
-            <span className='text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full'>
-              {personal.sampleSize} MR
-            </span>
-          )}
+          <div className='flex items-center gap-2'>
+            {personal.sampleSize === 0 ? (
+              <span className='text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full'>
+                нет MR за период
+              </span>
+            ) : (
+              <span className='text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full'>
+                {personal.sampleSize} MR
+              </span>
+            )}
+            <FormulaTooltip entries={MR_SIZE_FORMULAS} />
+          </div>
         </div>
       </CardHeader>
 
